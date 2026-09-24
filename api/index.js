@@ -1,5 +1,5 @@
 import {publicConfig,appError} from '../server/core.mjs';
-import {getMarket,getChart,getActivity,position,rpc} from '../server/market.mjs';
+import {getMarket,getChart,getActivity,position,rpc,snapshotMarket} from '../server/market.mjs';
 import {session,browserEvent,rateLimit,flushEvents} from '../server/events.mjs';
 import {authenticate} from '../server/auth.mjs';
 import {prepareTrade,submitTrade,confirmTrade,reconcileTrades} from '../server/trade.mjs';
@@ -24,6 +24,8 @@ export default async function handler(req,res){
       if(path==='/jobs'){
         if(!process.env.CRON_SECRET||req.headers.authorization!==`Bearer ${process.env.CRON_SECRET}`)throw appError('Unauthorized.',401);
         const trades=await reconcileTrades(),ramps=await reconcileRamps(),events=await flushEvents(20);
+        try{await snapshotMarket();}catch{}
+        await database().query("DELETE FROM cfk_market_samples WHERE observed_at<now()-interval '8 days'");
         await database().query('DELETE FROM cfk_rate_limits WHERE expires_at<now()');
         await database().query("UPDATE cfk_sessions SET consent=false,attribution='{}',ip=NULL,user_agent=NULL WHERE expires_at<now() AND (consent OR attribution<>'{}'::jsonb)");
         return reply({trades,ramps,...events});

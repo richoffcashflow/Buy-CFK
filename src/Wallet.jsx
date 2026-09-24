@@ -1,24 +1,25 @@
 import React,{useEffect,useRef} from 'react';
 import {PrivyProvider,usePrivy} from '@privy-io/react-auth';
-import {useWallets,useSignAndSendTransaction} from '@privy-io/react-auth/solana';
-import {getBase58Decoder,createSolanaRpc,createSolanaRpcSubscriptions} from '@solana/kit';
+import {useWallets,useSignTransaction} from '@privy-io/react-auth/solana';
+import {createSolanaRpc,createSolanaRpcSubscriptions} from '@solana/kit';
 
 function Bridge({onReady,onError,activation}){
   const {ready,authenticated,login,getAccessToken}=usePrivy();
   const {wallets}=useWallets();
-  const {signAndSendTransaction}=useSignAndSendTransaction();
+  const {signTransaction}=useSignTransaction();
   const loginStarted=useRef(-1),lastAddress=useRef(null);
-  useEffect(()=>{if(ready&&!authenticated&&loginStarted.current!==activation){loginStarted.current=activation;if(!window.Telegram?.WebApp?.initData)login();}},[ready,authenticated,login,activation]);
+  useEffect(()=>{if(activation>0&&ready&&!authenticated&&loginStarted.current!==activation){loginStarted.current=activation;if(!window.Telegram?.WebApp?.initData)login();}},[ready,authenticated,login,activation]);
   useEffect(()=>{
-    if(!authenticated||!wallets[0]||lastAddress.current===wallets[0].address)return;
-    const wallet=wallets[0];lastAddress.current=wallet.address;
+    const wallet=wallets.find(w=>w.standardWallet?.isPrivyWallet);
+    if(!authenticated||!wallet||lastAddress.current===wallet.address)return;
+    lastAddress.current=wallet.address;
     onReady({address:wallet.address,getAccessToken,sign:async base64=>{
       const transaction=Uint8Array.from(atob(base64),c=>c.charCodeAt(0));
-      const {signature}=await signAndSendTransaction({transaction,wallet,chain:'solana:mainnet',options:{skipPreflight:false,uiOptions:{showWalletUIs:true}}});
-      return getBase58Decoder().decode(signature);
+      const {signedTransaction}=await signTransaction({transaction,wallet,chain:'solana:mainnet',options:{uiOptions:{showWalletUIs:false}}});
+      return btoa(String.fromCharCode(...signedTransaction));
     }});
-  },[authenticated,wallets,getAccessToken,signAndSendTransaction,onReady]);
-  useEffect(()=>{const t=setTimeout(()=>{if(!lastAddress.current)onError('Your wallet is still connecting. Check your sign-in and try again.');},45000);return()=>clearTimeout(t);},[onError]);
+  },[authenticated,wallets,getAccessToken,signTransaction,onReady]);
+  useEffect(()=>{if(!activation)return;const t=setTimeout(()=>{if(!lastAddress.current)onError('Sign-in is still connecting. Please try again.');},45000);return()=>clearTimeout(t);},[onError,activation]);
   return null;
 }
 export default function Wallet({appId,onReady,onError,activation}){

@@ -14,7 +14,7 @@ test('confirmed buys are idempotent; pending, failed, and mismatched transaction
   const previousUrl=process.env.DATABASE_URL;process.env.DATABASE_URL='postgres://test-only';
   const query=(sql,args)=>sql.includes('pg_advisory_xact_lock')?Promise.resolve({rows:[]}):db.query(sql,args);
   pg.Pool.prototype.query=query;pg.Pool.prototype.connect=async()=>({query,release(){}});
-  const payer=Keypair.generate().publicKey,recipient=Keypair.generate().publicKey;
+  const payerKey=Keypair.generate(),payer=payerKey.publicKey,recipient=Keypair.generate().publicKey;
   const tx=new VersionedTransaction(new TransactionMessage({payerKey:payer,recentBlockhash:SystemProgram.programId.toBase58(),instructions:[SystemProgram.transfer({fromPubkey:payer,toPubkey:recipient,lamports:500})]}).compileToV0Message());
   const encoded=Buffer.from(tx.serialize()).toString('base64'),session='a'.repeat(32),wallet=payer.toBase58(),user={id:'test-user'};
   let chainData=null;
@@ -45,6 +45,36 @@ test('confirmed buys are idempotent; pending, failed, and mismatched transaction
     chainData.meta.err=null;await assert.rejects(confirmTrade(user,mismatch),{status:409});
     assert.equal((await db.query('SELECT * FROM cfk_events')).rows.length,1);
     assert.equal((await db.query('SELECT * FROM cfk_trades')).rows.length,1);
+    const funding=randomUUID();
+    await db.query("INSERT INTO cfk_ramps(id,user_id,wallet,direction,session_id,checkout_id,gross_cents,platform_fee_cents,net_cents,status,quote) VALUES($1,$2,$3,'onramp',$4,$5,2000,300,1700,'completed',$6)",[funding,user.id,wallet,session,randomUUID(),{intent:'buy'}]);
+    await db.query('INSERT INTO cfk_fee_lots(id,wallet,remaining_units,original_units,remaining_fee_cents,original_fee_cents) VALUES($1,$2,1000,1000,300,300)',[funding,wallet]);
+    const fundedOrder=await order();
+    await db.query('UPDATE cfk_orders SET funding_id=$2,quote=$3 WHERE id=$1',[fundedOrder,funding,{provider:'PumpPortal',solUsd:100}]);
+    tx.sign([payerKey]);
+    const signed=Buffer.from(tx.serialize()).toString('base64');
+    const bad=VersionedTransaction.deserialize(Buffer.from(signed,'base64'));bad.signatures[0][0]^=1;
+    await assert.rejects(submitTrade(user,{orderId:fundedOrder,transaction:Buffer.from(bad.serialize()).toString('base64')}),{status:401});
+    assert.equal((await db.query('SELECT status FROM cfk_orders WHERE id=$1',[fundedOrder])).rows[0].status,'prepared');
+    let broadcasts=0;
+    globalThis.fetch=async(url,opts)=>{
+      const request=JSON.parse(opts.body);let result=chainData;
+      if(request.method==='sendTransaction'){
+        const saved=(await db.query('SELECT signature,status FROM cfk_orders WHERE id=$1',[fundedOrder])).rows[0];
+        assert.ok(saved.signature);assert.ok(['submitted','confirmed'].includes(saved.status));broadcasts++;result=saved.signature;
+      }
+      return new Response(JSON.stringify({jsonrpc:'2.0',id:1,result}),{status:200,headers:{'Content-Type':'application/json'}});
+    };
+    const sent=await submitTrade(user,{orderId:fundedOrder,transaction:signed});assert.ok(sent.signature);assert.equal(broadcasts,1);
+    chainData.transaction=[signed,'base64'];
+    const fundedReceipt=await confirmTrade(user,fundedOrder);assert.equal(fundedReceipt.event.valueCents,300);
+    await submitTrade(user,{orderId:fundedOrder,transaction:signed});
+    assert.deepEqual(await confirmTrade(user,fundedOrder),fundedReceipt);
+    const fundedLot=(await db.query('SELECT * FROM cfk_fee_lots WHERE id=$1',[funding])).rows[0];
+    assert.equal(Number(fundedLot.remaining_fee_cents),0);assert.equal(Number(fundedLot.remaining_units),500);
+    const duplicate=await order();
+    await assert.rejects(db.query('UPDATE cfk_orders SET funding_id=$2 WHERE id=$1',[duplicate,funding]),{code:'23505'});
+    assert.equal((await db.query("SELECT count(*) FROM cfk_events WHERE name='Purchase'")).rows[0].count,2);
+
   }finally{
     pg.Pool.prototype.query=realQuery;pg.Pool.prototype.connect=realConnect;globalThis.fetch=realFetch;
     if(previousUrl===undefined)delete process.env.DATABASE_URL;else process.env.DATABASE_URL=previousUrl;

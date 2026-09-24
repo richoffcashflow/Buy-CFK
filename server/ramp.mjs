@@ -6,6 +6,7 @@ import {position} from './market.mjs';
 function providerBase(){if(process.env.RAMP_ENABLED!=='true'||!process.env.RAMP_ADAPTER_URL||!process.env.RAMP_ADAPTER_KEY)throw appError('Card payments and cash withdrawals are not available yet. The payment provider is being connected. Your money has not moved.',503);const url=new URL(process.env.RAMP_ADAPTER_URL);if(url.protocol!=='https:')throw appError('The payment connection is not ready.',503);return url.origin+url.pathname.replace(/\/$/,'');}
 async function providerRequest(path,body){return fetchJson(providerBase()+path,{method:body?'POST':'GET',headers:{Authorization:`Bearer ${process.env.RAMP_ADAPTER_KEY}`,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined});}
 export async function createRamp(user,body){
+  if(body.direction==='onramp'&&body.intent==='buy'&&process.env.TRADING_ENABLED!=='true')throw appError('Buying is being connected. No payment has been taken.',503);
   providerBase();
   if(!['onramp','offramp'].includes(body.direction)||!validAddress(body.wallet))throw appError('Invalid payment request.');
   const fee=feeBreakdown(body.grossCents);
@@ -20,7 +21,7 @@ export async function createRamp(user,body){
   const url=new URL(quote.checkoutUrl||'');
   const origins=(process.env.RAMP_ALLOWED_ORIGINS||'').split(',').map(s=>s.trim());
   if(!quote.id||quote.grossCents!==fee.grossCents||quote.platformFeeCents!==expected.platformFeeCents||quote.netCents!==expected.netCents||url.protocol!=='https:'||!origins.includes(url.origin)||quote.embeddable!==true)throw appError('The payment provider could not confirm the amount, fees, or embedded checkout.',502);
-  await database().query("UPDATE cfk_ramps SET provider_id=$2,provider_fee_cents=$3,net_cents=$4,quote=$5,status='pending' WHERE id=$1",[id,quote.id,expected.providerFeeCents,expected.netCents,quote]);
+  await database().query("UPDATE cfk_ramps SET provider_id=$2,provider_fee_cents=$3,net_cents=$4,quote=$5,status='pending' WHERE id=$1",[id,quote.id,expected.providerFeeCents,expected.netCents,{...quote,intent:body.direction==='onramp'&&body.intent==='buy'?'buy':'withdraw'}]);
   return {rampId:id,providerName:process.env.RAMP_PROVIDER_NAME||'Payment provider',checkoutUrl:url.toString(),...expected};
 }
 export async function reconcileRamp(row){

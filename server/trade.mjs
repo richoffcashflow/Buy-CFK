@@ -1,42 +1,82 @@
-import {randomUUID} from 'node:crypto';
+import {randomUUID,createPublicKey,verify} from 'node:crypto';
 import {VersionedTransaction} from '@solana/web3.js';
-import {mint,SOL_MINT,NETWORK_RESERVE,fetchJson,appError,sha,allocateFee} from './core.mjs';
+import {getBase58Decoder} from '@solana/kit';
+import {mint,NETWORK_RESERVE,appError,sha,allocateFee} from './core.mjs';
 import {database,transaction} from './db.mjs';
 import {position,rpc,supply} from './market.mjs';
 import {getSession,recordEvent} from './events.mjs';
+import {pumpTransaction} from './pump.mjs';
 
+function preparedReceipt(order){
+  if(order.signature||order.status==='confirmed')return {existingOrder:true,orderId:order.id,signature:order.signature};
+  if(order.status==='failed')throw appError('This trade failed. Your remaining funds are available to withdraw.',409);
+  return {...order.quote.review,orderId:order.id,transaction:order.quote.transaction,expiresAt:new Date(order.expires_at).toISOString()};
+}
 export async function prepareTrade(user,body){
-  if(process.env.TRADING_ENABLED!=='true'||!process.env.JUPITER_API_KEY)throw appError('Buying and selling are being connected. Your money has not moved.',503);
-  if(!['buy','sell'].includes(body.side)||!Number.isFinite(body.amountUsd)||body.amountUsd<.01||body.amountUsd>1000000)throw appError('Choose a valid amount.');
-  await getSession(body.sessionId);
-  const balance=await position(body.wallet),tokenSupply=await supply();
+  if(process.env.TRADING_ENABLED!=='true')throw appError('Buying and selling are being connected. Your money has not moved.',503);
+  if(!['buy','sell'].includes(body.side))throw appError('Choose Buy or Sell.');
   const buying=body.side==='buy';
-  if(balance.solAmount<NETWORK_RESERVE)throw appError('Add a little SOL for the network cost before continuing.');
-  if(buying&&body.amountUsd>balance.availableUsd)throw appError('Add money or choose a smaller amount.');
-  if(!buying&&(!balance.valueUsd||body.amountUsd>balance.valueUsd+.001))throw appError('Choose an amount within your CFK balance.');
-  const input=buying?BigInt(Math.floor(body.amountUsd/balance.solUsd*1e9)):BigInt(Math.min(Number(balance.tokenAtomic),Math.floor(body.amountUsd/balance.valueUsd*Number(balance.tokenAtomic))));
-  if(input<=0n)throw appError('This amount is too small.');
-  const slippageBps=100;
-  const params=new URLSearchParams({inputMint:buying?SOL_MINT:mint(),outputMint:buying?mint():SOL_MINT,amount:input.toString(),slippageBps:String(slippageBps),restrictIntermediateTokens:'true',instructionVersion:'V2'});
-  const headers={'x-api-key':process.env.JUPITER_API_KEY};
-  const quote=await fetchJson(`https://api.jup.ag/swap/v1/quote?${params}`,{headers});
-  if(!quote.outAmount||BigInt(quote.outAmount)<=0n||quote.inAmount!==input.toString()||quote.inputMint!==params.get('inputMint')||quote.outputMint!==params.get('outputMint'))throw appError('No available route for this amount. Please try again.',503);
-  if(Number(quote.priceImpactPct)>.03)throw appError('This amount would move the coin price by more than 3%. Try a smaller amount.');
-  const swap=await fetchJson('https://api.jup.ag/swap/v1/swap',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({quoteResponse:quote,userPublicKey:body.wallet,wrapAndUnwrapSol:true,dynamicComputeUnitLimit:true,prioritizationFeeLamports:{priorityLevelWithMaxLamports:{maxLamports:500000,priorityLevel:'high'}}})});
-  if(!swap.swapTransaction)throw appError('The transaction could not be prepared.',502);
-  const tx=VersionedTransaction.deserialize(Buffer.from(swap.swapTransaction,'base64'));
-  if(tx.message.staticAccountKeys[0].toBase58()!==body.wallet)throw appError('The transaction does not match your wallet.',502);
-  const simulation=await rpc('simulateTransaction',[swap.swapTransaction,{encoding:'base64',sigVerify:false,commitment:'confirmed'}]);
-  if(simulation.value?.err)throw appError('This transaction cannot complete right now. Try a smaller amount.',409);
-  const id=randomUUID(),expires=new Date(Date.now()+30000);
-  const amountUsd=buying?body.amountUsd:Number(quote.outAmount)/1e9*balance.solUsd;
-  await database().query('INSERT INTO cfk_orders(id,user_id,wallet,side,session_id,amount_usd_cents,input_atomic,expected_token_atomic,quote,message_hash,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',[id,user.id,body.wallet,body.side,body.sessionId,Math.round(amountUsd*100),input.toString(),buying?quote.outAmount:input.toString(),{...quote,solUsd:balance.solUsd,decimals:tokenSupply.decimals},sha(tx.message.serialize()),expires]);
-  return {orderId:id,transaction:swap.swapTransaction,amountUsd,tokens:Number(buying?quote.outAmount:input)/10**tokenSupply.decimals,slippageBps,networkReserveUsd:NETWORK_RESERVE*balance.solUsd,expiresAt:expires.toISOString()};
+  if(body.fundingId&&!/^[a-f0-9-]{36}$/.test(body.fundingId))throw appError('Invalid payment reference.');
+  if(!body.fundingId&&(!Number.isFinite(body.amountUsd)||body.amountUsd<.01||body.amountUsd>1000000))throw appError('Choose a valid dollar amount.');
+  if(body.fundingId&&!buying)throw appError('A payment can only fund a purchase.');
+  await getSession(body.sessionId);
+  return transaction(async c=>{
+    await c.query('SELECT pg_advisory_xact_lock(hashtext($1))',[body.wallet]);
+    let funding,existing;
+    if(body.fundingId){
+      funding=(await c.query("SELECT r.*,l.remaining_units FROM cfk_ramps r JOIN cfk_fee_lots l ON l.id=r.id WHERE r.id=$1 AND r.user_id=$2 AND r.wallet=$3 AND r.direction='onramp' AND r.status='completed'",[body.fundingId,user.id,body.wallet])).rows[0];
+      if(!funding||funding.quote?.intent!=='buy')throw appError('Your payment is not yet verified for this purchase.',409);
+      existing=(await c.query('SELECT * FROM cfk_orders WHERE funding_id=$1',[funding.id])).rows[0];
+      if(existing&&(existing.signature||existing.status!=='prepared'||new Date(existing.expires_at)>new Date()))return preparedReceipt(existing);
+    }
+    const [balance,tokenSupply]=await Promise.all([position(body.wallet),supply()]);
+    if(balance.solAmount<=NETWORK_RESERVE)throw appError('Your available funds do not yet cover trading costs. Please wait for payment confirmation or choose a smaller amount.');
+    let input,cashLimit;
+    if(buying){
+      const available=BigInt(Math.max(0,Math.floor(balance.lamports-NETWORK_RESERVE*1e9)));
+      cashLimit=funding?(BigInt(funding.remaining_units)<available?BigInt(funding.remaining_units):available):BigInt(Math.floor(body.amountUsd/balance.solUsd*1e9));
+      if(cashLimit>available)throw appError('Choose an amount within your available funds.');
+      // Reserve room inside the selected dollar budget for route costs and the price allowance.
+      input=(cashLimit-6000000n)*100n/104n;
+    }else{
+      if(!balance.valueUsd||body.amountUsd>balance.valueUsd+.01)throw appError('Choose an amount within your CFK position.');
+      input=BigInt(Math.min(Number(balance.tokenAtomic),Math.floor(body.amountUsd/balance.valueUsd*Number(balance.tokenAtomic))));
+    }
+    if(input<=0n)throw appError('This amount does not cover trading costs. Choose a larger amount.');
+    const slippageBps=100,swap=await pumpTransaction({wallet:body.wallet,side:body.side,input,decimals:tokenSupply.decimals,slippageBps,cashLimit,rpc});
+    if(buying&&swap.solAtomic>cashLimit)throw appError('Trading costs exceed this payment’s budget. Please try again.',409);
+    const amountUsd=Number(swap.solAtomic)/1e9*balance.solUsd;
+    const review={amountUsd,tokens:Number(swap.tokenAtomic)/10**tokenSupply.decimals,slippageBps,provider:'PumpPortal',providerFeeBps:50};
+    const quote={provider:'PumpPortal',solUsd:balance.solUsd,decimals:tokenSupply.decimals,transaction:swap.transaction,review};
+    const expires=new Date(Date.now()+45000),id=existing?.id||randomUUID();
+    if(existing)await c.query('UPDATE cfk_orders SET amount_usd_cents=$2,input_atomic=$3,expected_token_atomic=$4,quote=$5,message_hash=$6,expires_at=$7 WHERE id=$1',[id,Math.max(1,Math.round(amountUsd*100)),input.toString(),swap.tokenAtomic.toString(),quote,sha(swap.tx.message.serialize()),expires]);
+    else await c.query('INSERT INTO cfk_orders(id,user_id,wallet,side,session_id,amount_usd_cents,input_atomic,expected_token_atomic,quote,message_hash,expires_at,funding_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',[id,user.id,body.wallet,body.side,body.sessionId,Math.max(1,Math.round(amountUsd*100)),input.toString(),swap.tokenAtomic.toString(),quote,sha(swap.tx.message.serialize()),expires,funding?.id||null]);
+    return {orderId:id,transaction:swap.transaction,...review,expiresAt:expires.toISOString()};
+  });
 }
 export async function submitTrade(user,body){
-  if(!/^[1-9A-HJ-NP-Za-km-z]{64,90}$/.test(body.signature||''))throw appError('Invalid transaction signature.');
-  const result=await database().query("UPDATE cfk_orders SET signature=$3,status=CASE WHEN status='prepared' THEN 'submitted' ELSE status END WHERE id=$1 AND user_id=$2 AND (signature IS NULL OR signature=$3) RETURNING id",[body.orderId,user.id,body.signature]);
-  if(!result.rows.length)throw appError('Transaction not found.',404);return {accepted:true};
+  let signed,signature=body.signature;
+  if(body.transaction){
+    if(typeof body.transaction!=='string'||body.transaction.length>1700)throw appError('Invalid signed transaction.');
+    try{signed=VersionedTransaction.deserialize(Buffer.from(body.transaction,'base64'));}catch{throw appError('Invalid signed transaction.');}
+    signature=getBase58Decoder().decode(signed.signatures[0]);
+  }
+  if(!/^[1-9A-HJ-NP-Za-km-z]{64,90}$/.test(signature||''))throw appError('Invalid transaction signature.');
+  await transaction(async c=>{
+    const order=(await c.query('SELECT * FROM cfk_orders WHERE id=$1 AND user_id=$2 FOR UPDATE',[body.orderId,user.id])).rows[0];
+    if(!order)throw appError('Transaction not found.',404);
+    if(order.signature&&order.signature!==signature)throw appError('This order already has a different transaction.',409);
+    if(signed){
+      if(sha(signed.message.serialize())!==order.message_hash||signed.message.staticAccountKeys[0].toBase58()!==order.wallet||signed.message.header.numRequiredSignatures!==1)throw appError('The signed transaction does not match your order.',409);
+      const key=createPublicKey({key:Buffer.concat([Buffer.from('302a300506032b6570032100','hex'),signed.message.staticAccountKeys[0].toBuffer()]),format:'der',type:'spki'});
+      if(!verify(null,signed.message.serialize(),key,signed.signatures[0]))throw appError('The transaction signature could not be verified.',401);
+      if(!order.signature&&new Date(order.expires_at)<new Date())throw appError('This price expired. Please retry for a fresh price.',409);
+    }else if(order.quote.provider==='PumpPortal')throw appError('A signed transaction is required.');
+    await c.query("UPDATE cfk_orders SET signature=$2,status=CASE WHEN status='prepared' THEN 'submitted' ELSE status END WHERE id=$1",[order.id,signature]);
+  });
+  // Save the signature first so the worker can confirm even if this request is interrupted.
+  if(signed){try{await rpc('sendTransaction',[body.transaction,{encoding:'base64',skipPreflight:false,maxRetries:3}]);}catch{return {accepted:true,signature,pending:true};}}
+  return {accepted:true,signature};
 }
 export async function confirmTrade(user,id){
   const order=(await database().query('SELECT * FROM cfk_orders WHERE id=$1 AND user_id=$2',[id,user.id])).rows[0];
@@ -55,15 +95,21 @@ export async function confirmTrade(user,id){
   const change=after-before,buying=order.side==='buy';
   if(buying?change<=0n:change>=0n)throw appError('The expected coin movement was not confirmed.',409);
   const qty=buying?change:-change;
-  // The entire message is matched to the server-built swap, so input units are fixed by the quote.
-  const solLamports=buying?BigInt(order.input_atomic):BigInt(Math.max(0,data.meta.postBalances[0]-data.meta.preBalances[0]));
+  const solLamports=buying?(order.quote.provider==='PumpPortal'?BigInt(Math.max(0,data.meta.preBalances[0]-data.meta.postBalances[0])):BigInt(order.input_atomic)):BigInt(Math.max(0,data.meta.postBalances[0]-data.meta.preBalances[0]));
   const confirmedAt=new Date((data.blockTime||Math.floor(Date.now()/1000))*1000);
   await transaction(async c=>{
     await c.query('SELECT pg_advisory_xact_lock(hashtext($1))',[order.wallet]);
     const locked=(await c.query('SELECT status FROM cfk_orders WHERE id=$1 FOR UPDATE',[id])).rows[0];
     if(locked.status==='confirmed')return;
     let feeCents=0,remaining=solLamports;
-    if(buying){
+    if(buying&&order.funding_id){
+      const lot=(await c.query('SELECT * FROM cfk_fee_lots WHERE id=$1 AND wallet=$2 FOR UPDATE',[order.funding_id,order.wallet])).rows[0];
+      if(!lot)throw appError('The payment fee receipt is unavailable.',409);
+      // The verified on-ramp fee belongs to this one automatic purchase, including any unspent reserve.
+      feeCents=Number(lot.remaining_fee_cents);
+      const used=solLamports<BigInt(lot.remaining_units)?solLamports:BigInt(lot.remaining_units);
+      await c.query('UPDATE cfk_fee_lots SET remaining_units=remaining_units-$2,remaining_fee_cents=0 WHERE id=$1',[lot.id,used.toString()]);
+    }else if(buying){
       const lots=(await c.query('SELECT * FROM cfk_fee_lots WHERE wallet=$1 AND remaining_units>0 ORDER BY created_at,id FOR UPDATE',[order.wallet])).rows;
       for(const lot of lots){if(remaining<=0n)break;const units=BigInt(lot.remaining_units),used=remaining<units?remaining:units;const fee=allocateFee(lot,used);feeCents+=fee;remaining-=used;await c.query('UPDATE cfk_fee_lots SET remaining_units=remaining_units-$2,remaining_fee_cents=remaining_fee_cents-$3 WHERE id=$1',[lot.id,used.toString(),fee]);}
     }

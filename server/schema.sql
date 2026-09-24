@@ -47,3 +47,10 @@ ALTER TABLE cfk_fee_lots ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cfk_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cfk_deliveries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cfk_rate_limits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cfk_orders ADD COLUMN IF NOT EXISTS funding_id uuid REFERENCES cfk_ramps(id);
+CREATE UNIQUE INDEX IF NOT EXISTS cfk_orders_funding ON cfk_orders(funding_id) WHERE funding_id IS NOT NULL;
+CREATE TABLE IF NOT EXISTS cfk_market_samples (
+ mint text NOT NULL, observed_at timestamptz NOT NULL, price_usd double precision NOT NULL CHECK(price_usd>0),
+ PRIMARY KEY(mint,observed_at)
+);
+ALTER TABLE cfk_market_samples ENABLE ROW LEVEL SECURITY;
