@@ -48,5 +48,5 @@ export default async function handler(req,res){
     if(path==='/trade/confirm')return reply(await confirmTrade(user,body.orderId));
     if(path==='/ramp/session')return reply(await createRamp(user,body));
     throw appError('Not found.',404);
-  }catch(e){const status=e.status||500;return reply({message:e.status?e.message:'The app could not complete this request. Please try again.'},status);}
+  }catch(e){const status=e.status||500;if(status>=500){const code=String(e.code||e.name||'Error');console.error('CFK API request failed',{code:/^[A-Za-z0-9_]{1,64}$/.test(code)?code:'Error'});}return reply({message:e.status?e.message:'The app could not complete this request. Please try again.'},status);}
 }
