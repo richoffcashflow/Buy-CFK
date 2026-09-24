@@ -10,7 +10,8 @@
     "dev": "node scripts/dev.mjs",
     "build": "vite build",
     "test": "node --test test/*.test.mjs",
-    "db:migrate": "node scripts/migrate.mjs"
+    "db:migrate": "node scripts/migrate.mjs",
+    "worker": "node scripts/worker.mjs"
   },
   "dependencies": {
     "@privy-io/react-auth": "^3.3.0",
