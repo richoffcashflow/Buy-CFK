@@ -37,8 +37,11 @@ export async function getMarket(){
 export async function getChart(range){
   const periods={'1h':['minute',1,60],'4h':['minute',5,48],'1d':['hour',1,24],'1w':['hour',4,42]};
   if(!periods[range])throw appError('Invalid chart range.');
-  return cached('chart:'+range+mint(),30000,async()=>{const pair=await getPair();if(pair){try{const [timeframe,aggregate,limit]=periods[range];const data=await fetchJson(`https://api.geckoterminal.com/api/v2/networks/solana/pools/${pair.pairAddress}/ohlcv/${timeframe}?aggregate=${aggregate}&limit=${limit}&currency=usd&token=${mint()}`);const rows=data?.data?.attributes?.ohlcv_list||[];if(rows.length)return {points:rows.filter(p=>p.length>=5&&p.slice(0,5).every(Number.isFinite)).sort((a,b)=>a[0]-b[0]),source:'GeckoTerminal'};}catch{}}
-    try{await snapshotMarket();const hours={'1h':1,'4h':4,'1d':24,'1w':168}[range];const rows=(await database().query("SELECT extract(epoch FROM observed_at) AS time,price_usd FROM cfk_market_samples WHERE mint=$1 AND observed_at>now()-($2 * interval '1 hour') ORDER BY observed_at",[mint(),hours])).rows;return {points:rows.map(r=>[Number(r.time),r.price_usd,r.price_usd,r.price_usd,r.price_usd,0]),source:'Observed on-chain prices',buildingHistory:true};}catch{return {points:[],buildingHistory:true};}
+  return cached('chart:'+range+mint(),30000,async()=>{
+    const hours={'1h':1,'4h':4,'1d':24,'1w':168}[range];
+    try{const rows=(await database().query("SELECT extract(epoch FROM observed_at) AS time,price_usd FROM cfk_market_samples WHERE mint=$1 AND observed_at>now()-($2::double precision * interval '1 hour') ORDER BY observed_at",[mint(),hours])).rows;if(rows.length)return {points:rows.map(r=>[Number(r.time),r.price_usd,r.price_usd,r.price_usd,r.price_usd,0]),source:'Observed on-chain prices',buildingHistory:true};}catch{}
+    const pair=await getPair();if(pair){try{const [timeframe,aggregate,limit]=periods[range];const data=await fetchJson(`https://api.geckoterminal.com/api/v2/networks/solana/pools/${pair.pairAddress}/ohlcv/${timeframe}?aggregate=${aggregate}&limit=${limit}&currency=usd&token=${mint()}`);const rows=data?.data?.attributes?.ohlcv_list||[];if(rows.length)return {points:rows.filter(p=>p.length>=5&&p.slice(0,5).every(Number.isFinite)).sort((a,b)=>a[0]-b[0]),source:'GeckoTerminal'};}catch{}}
+    return {points:[],buildingHistory:true};
   });
 }
 export async function getActivity(){return cached('activity:'+mint(),45000,async()=>{const pair=await getPair();if(pair){try{const data=await fetchJson(`https://api.geckoterminal.com/api/v2/networks/solana/pools/${pair.pairAddress}/trades`);return {items:normalizeActivity(data.data||[],mint()),updatedAt:new Date().toISOString(),source:'GeckoTerminal'};}catch{}}
