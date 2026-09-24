@@ -29,5 +29,10 @@
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
     "vite": "^7.1.3"
+  },
+  "overrides": {
+    "rpc-websockets": {
+      "uuid": "11.1.0"
+    }
   }
 }
