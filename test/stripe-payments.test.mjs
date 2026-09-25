@@ -5,7 +5,7 @@ import {readFile} from 'node:fs/promises';
 import pg from 'pg';
 import {PGlite} from '@electric-sql/pglite';
 import {Keypair} from '@solana/web3.js';
-import {stripeFundingReceipt,verifyStripeSignature,decimalUnits,createStripeRamp,reconcileStripeRamp} from '../server/stripe-payments.mjs';
+import {validateStripePaymentRequest,stripeFundingReceipt,verifyStripeSignature,decimalUnits,createStripeRamp,reconcileStripeRamp} from '../server/stripe-payments.mjs';
 import {rampStatus} from '../server/ramp.mjs';
 const wallet=Keypair.generate().publicKey.toBase58(),recipient=Keypair.generate().publicKey.toBase58();
 const makeData=row=>({id:row.provider_id,object:'crypto.onramp_session',livemode:true,status:'fulfillment_complete',metadata:{cfk_ramp_id:row.id,cfk_wallet:row.wallet},client_secret:row.provider_id+'_secret_TESTONLY',transaction_details:{lock_wallet_address:true,wallet_address:row.wallet,wallet_addresses:{solana:row.wallet},destination_currency:'sol',destination_network:'solana',source_currency:'usd',source_amount:'18.00',destination_amount:'0.18',fees:{network_fee_amount:'0.10',transaction_fee_amount:'1.90'},transaction_id:'4'.repeat(64)}});
@@ -85,4 +85,13 @@ test('Stripe retries share one checkout, funding needs finalized delivery, and d
     pg.Pool.prototype.query=realQuery;pg.Pool.prototype.connect=realConnect;globalThis.fetch=realFetch;
     for(const key of names){if(previous[key]===undefined)delete process.env[key];else process.env[key]=previous[key];}await db.close();
   }
+});
+
+test('admin fee wallet can test isolated checkout but cannot buy in live mode',()=>{
+  const wallet='GCSMVSukYak5KmmF5jU9XAb9xP1cd689m8UpUm5zbUNz';
+  const body={direction:'onramp',intent:'buy',wallet,checkoutId:'12345678-1234-1234-1234-123456789abc'};
+  assert.throws(()=>validateStripePaymentRequest(body,{feeWallet:wallet}),/receives platform fees/);
+  assert.doesNotThrow(()=>validateStripePaymentRequest(body,{feeWallet:wallet,sandbox:true}));
+  assert.throws(()=>validateStripePaymentRequest({...body,wallet:null},{sandbox:true}),/coin account is not ready/);
+  assert.throws(()=>validateStripePaymentRequest({...body,checkoutId:'bad'},{sandbox:true}),/checkout reference is invalid/);
 });

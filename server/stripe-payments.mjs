@@ -1,3 +1,4 @@
+import {isSandbox} from './sandbox.mjs';
 import {createHmac,timingSafeEqual,randomUUID} from 'node:crypto';
 import {appError,feeBreakdown,validAddress,sha} from './core.mjs';
 import {stripeConfiguration,stripeReady,validFeeRecipient} from './stripe-config.mjs';
@@ -45,9 +46,15 @@ async function stripeCheckout(row){
   if(typeof data.client_secret!=='string'||!data.client_secret.startsWith(row.provider_id+'_secret_'))throw appError('Stripe checkout is unavailable.',502);
   return {provider:'stripe',rampId:row.id,direction:'onramp',publishableKey:process.env.STRIPE_PUBLISHABLE_KEY.trim(),clientSecret:data.client_secret,grossCents:Number(row.gross_cents),providerFeeCents:Number(row.provider_fee_cents),platformFeeCents:Number(row.platform_fee_cents),netCents:Number(row.net_cents)};
 }
+export function validateStripePaymentRequest(body,{sandbox=false,feeWallet=process.env.PLATFORM_FEE_WALLET}={}){
+  if(body.direction!=='onramp'||body.intent!=='buy')throw appError('This checkout only supports buying CFK. Close it and start a new purchase.');
+  if(!validAddress(body.wallet))throw appError('Your coin account is not ready. Please sign in again.');
+  if(body.wallet===feeWallet&&!sandbox)throw appError('This account receives platform fees. Use a separate buyer account for live purchases. No payment has been taken.');
+  if(!/^[a-f0-9-]{36}$/.test(body.checkoutId||''))throw appError('Your checkout reference is invalid. Close it and choose your amount again.');
+}
 export async function createStripeRamp(user,body){
   if(!stripeReady()||process.env.TRADING_ENABLED!=='true')throw appError('Buying is being connected. No payment has been taken.',503);
-  if(body.direction!=='onramp'||body.intent!=='buy'||!validAddress(body.wallet)||body.wallet===process.env.PLATFORM_FEE_WALLET||!/^[a-f0-9-]{36}$/.test(body.checkoutId||''))throw appError('Invalid payment request.');
+  validateStripePaymentRequest(body,{sandbox:isSandbox()&&stripeConfiguration().mode==='test'});
   feeBreakdown(body.grossCents);await getSession(body.sessionId);
   // Persist the quote and id before contacting Stripe. Retries reuse identical
   // parameters and the same Stripe idempotency key even after network timeouts.
