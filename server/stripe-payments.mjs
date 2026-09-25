@@ -94,6 +94,11 @@ export async function reconcileStripeRamp(row,{includeCheckout=false,approval}={
   if(!row.provider_id)return {status:'pending',direction:'onramp'};
   const data=await stripeRequest('/v1/crypto/onramp_sessions/'+row.provider_id);sessionMatches(data,row);
   if(data.status==='rejected'){await database().query("UPDATE cfk_ramps SET status='failed' WHERE id=$1 AND status<>'completed'",[row.id]);return {status:'failed',direction:'onramp'};}
+  // Test sessions never authorize funding credits or mainnet purchases.
+  if(data.livemode===false&&isSandbox()){
+    if(data.status==='fulfillment_complete')return {status:'sandbox_complete',direction:'onramp'};
+    if(data.status==='fulfillment_processing')return {status:'sandbox_processing',direction:'onramp'};
+  }
   const receipt=stripeFundingReceipt(data,row);
   if(!receipt)return {status:'pending',direction:'onramp',...(includeCheckout?await stripeCheckout(row):{})};
   // Never allow Stripe sandbox receipts to authorize real mainnet trades.
