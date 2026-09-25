@@ -58,9 +58,13 @@ export function pumpEvents(data,signature,decimals){
   return items.slice(0,1);
 }
 export async function pumpTransaction({wallet,side,input,decimals,slippageBps=100,cashLimit,platformFee,rpc}){
-  const response=await fetch('https://pumpportal.fun/api/trade-local',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({publicKey:wallet,action:side,mint:mint(),amount:Number(input)/10**(side==='buy'?9:decimals),denominatedInSol:side==='buy'?'true':'false',slippage:slippageBps/100,priorityFee:0.00005,pool:'auto'}),signal:AbortSignal.timeout(12000)});
+  // Official Pump builder supports the bonding curve and graduated AMM. Atomic
+  // string amounts avoid float conversion; its unsigned response remains untrusted.
+  const response=await fetch('https://fun-block.pump.fun/agents/swap',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({inputMint:side==='buy'?SOL_MINT:mint(),outputMint:side==='buy'?mint():SOL_MINT,amount:input.toString(),user:wallet,feePayer:wallet,slippagePct:slippageBps/100,frontRunningProtection:false,tipAmount:0,encoding:'base64'}),signal:AbortSignal.timeout(12000)});
   if(!response.ok)throw appError('A trade is not available for this amount right now. Please try again.',503);
-  const bytes=new Uint8Array(await response.arrayBuffer());
+  const result=await response.json();
+  if(typeof result.transaction!=='string'||result.transaction.length>1644)throw appError('The trade response could not be verified.',502);
+  const bytes=Buffer.from(result.transaction,'base64');
   if(bytes.length>1232)throw appError('The trade response could not be verified.',502);
   let tx=VersionedTransaction.deserialize(bytes);
   if(tx.message.header.numRequiredSignatures!==1||tx.message.staticAccountKeys[0].toBase58()!==wallet)throw appError('The trade does not match your account.',502);
@@ -90,5 +94,5 @@ export async function pumpTransaction({wallet,side,input,decimals,slippageBps=10
   const feeLamports=platformFee?BigInt(platformFee.lamports):0n;
   if(platformFee&&(!Number.isSafeInteger(after[2]?.lamports)||BigInt(after[2].lamports)-BigInt(before[2]?.lamports||0)!==feeLamports))throw appError('The platform fee could not be simulated.',502);
   if(side==='buy'?(tokenDelta<=0n||cashDelta>=0n||-cashDelta>input*101n/100n+6000000n+feeLamports):(tokenDelta!==-input||cashDelta<=0n))throw appError('The expected trade amounts could not be verified.',502);
-  return {transaction:serialized,tx,tokenAtomic:side==='buy'?tokenDelta:input,solAtomic:side==='buy'?-cashDelta:cashDelta,provider:'PumpPortal',providerFeeBps:50};
+  return {transaction:serialized,tx,tokenAtomic:side==='buy'?tokenDelta:input,solAtomic:side==='buy'?-cashDelta:cashDelta,provider:'Pump'};
 }

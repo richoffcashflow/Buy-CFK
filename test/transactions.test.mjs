@@ -81,7 +81,7 @@ test('confirmed buys are idempotent; pending, failed, and mismatched transaction
     await db.query("INSERT INTO cfk_ramps(id,user_id,wallet,direction,session_id,checkout_id,gross_cents,platform_fee_cents,net_cents,status,quote) VALUES($1,$2,$3,'onramp',$4,$5,2000,300,1500,'completed',$6)",[stripeFunding,user.id,wallet,session,randomUUID(),{provider:'stripe',intent:'buy'}]);
     await db.query('INSERT INTO cfk_fee_lots(id,wallet,remaining_units,original_units,remaining_fee_cents,original_fee_cents) VALUES($1,$2,1000,1000,0,0)',[stripeFunding,wallet]);
     const atomicOrder=await order(sha(atomic.message.serialize()));
-    await db.query('UPDATE cfk_orders SET funding_id=$2,quote=$3 WHERE id=$1',[atomicOrder,stripeFunding,{provider:'PumpPortal',solUsd:100,platformFee:fee}]);
+    await db.query('UPDATE cfk_orders SET funding_id=$2,quote=$3 WHERE id=$1',[atomicOrder,stripeFunding,{provider:'Pump',solUsd:100,platformFee:fee}]);
     await submitTrade(user,{orderId:atomicOrder,transaction:atomicEncoded});
     const adminIndex=atomic.message.staticAccountKeys.findIndex(k=>k.equals(admin));
     const preBalances=Array(atomic.message.staticAccountKeys.length).fill(0),postBalances=[...preBalances];

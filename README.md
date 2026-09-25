@@ -36,7 +36,7 @@ Set `APP_URL` to the new production origin and a random `CRON_SECRET`. The curre
 
 Create/configure the Privy app: embedded Solana wallets, email login, Telegram seamless authentication, the Telegram bot, and the exact allowed web/mini-app origins. Set `PRIVY_APP_ID`, `PRIVY_APP_SECRET`, and `PRIVY_VERIFICATION_KEY` on Vercel. Private keys remain in the user-authorized wallet flow.
 
-Set a production `SOLANA_RPC_URL` and `BIRDEYE_API_KEY`. PumpPortal’s Local Transaction API builds an unsigned buy/sell transaction without a Lightning wallet or API key. The app validates and simulates it, Privy signs it, and the server stores its signature before broadcasting. Verify a CFK buy and sell route, liquidity, quote, network reserve, and wallet signing before setting `TRADING_ENABLED=true`. A buy requires finalized on-chain confirmation matching the server-prepared transaction and actual CFK balance movement.
+Set a production `SOLANA_RPC_URL` and `BIRDEYE_API_KEY`. Pump’s official transaction service builds unsigned buy/sell transactions with integer atomic amounts. The app validates and simulates it, Privy signs it, and the server stores its signature before broadcasting. Verify a CFK buy and sell route, liquidity, quote, network reserve, and wallet signing before setting `TRADING_ENABLED=true`. A buy requires finalized on-chain confirmation matching the server-prepared transaction and actual CFK balance movement.
 
 ## Fees and tracking
 
@@ -101,11 +101,11 @@ External visits to the root of `buycfk.com` or `www.buycfk.com` automatically op
 
 ## Route verification status
 
-On September 24, 2026 the public PumpPortal Local endpoint returned an unsigned transaction for CFK. Its current response uses a wrapper program not documented in the official Pump.fun IDL. The validator deliberately rejects that route until its instruction format is verified; do not enable real-money flags on the strength of the unsigned response alone. Direct Pump.fun/Pump AMM instructions are parsed, but a funded simulation and a controlled signing check are still launch gates. Provider payment requests for automatic buys are blocked while `TRADING_ENABLED` is false.
+On September 25, 2026 the official `https://fun-block.pump.fun/agents/swap` endpoint returned a CFK buy using the direct Pump program, one signer, and no lookup table. It replaces PumpPortal's unsupported wrapper route. The same mint, owner, instruction, amount, simulation, and atomic admin fee checks still apply; no wrapper program has been allowlisted. A funded simulation and a controlled wallet-signing check remain launch gates. Provider payment requests for automatic buys are blocked while `TRADING_ENABLED` is false.
 
 The unlinked, no-index `/layout-preview.html` page renders the real app at two mobile sizes for layout verification.
 
-Sources: [PumpPortal Local API](https://pumpportal.fun/local-trading-api/trading-api/), [PumpPortal fees](https://pumpportal.fun/fees/), [Pump.fun protocol IDLs](https://github.com/pump-fun/pump-public-docs), [Solana account queries](https://solana.com/docs/rpc/http/getprogramaccounts).
+Sources: [Pump transaction API](https://github.com/pump-fun/pump-fun-skills/tree/main/swap), [Pump.fun protocol IDLs](https://github.com/pump-fun/pump-public-docs), [Solana account queries](https://solana.com/docs/rpc/http/getprogramaccounts).
 
 Sign-in is explicitly available in Telegram as well as the browser, with an email retry if Telegram authentication fails. The app releases its own dialog before opening Privy and keeps transaction dialogs below provider overlays. In Privy, enable **Telegram** itself as well as **seamless Mini App login**; the seamless checkbox alone does not enable Telegram authentication.
 
@@ -127,4 +127,4 @@ Checkout creation is idempotent per payment attempt. The funding wallet is locke
 
 The 15% platform fee is based on the actual gross fiat payment, converted using the actual funding exchange rate, and transferred to the captured admin address in the **same transaction** as the CFK purchase. The complete transaction is simulated and must fit Solana's size limit. Failed purchases do not collect this fee. The confirmed recipient balance and transfer are checked before recording fee revenue or a Purchase event. Purchase value is earned platform fee revenue, not payment volume. Changing the configured admin wallet does not reroute existing checkouts.
 
-Known activation gate: PumpPortal can return a route wrapper that this app does not yet support. Do not broaden the program allowlist or enable live funding without validating the current route. Real payment, signing, KYC, and payout flows have not been exercised by the automated fixtures.
+Known activation gate: validate the complete current route with a funded simulation and controlled wallet signing before enabling live funding. Real payment, signing, KYC, and payout flows have not been exercised by the automated fixtures.

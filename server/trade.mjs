@@ -53,8 +53,8 @@ export async function prepareTrade(user,body){
     const slippageBps=100,swap=await pumpTransaction({wallet:body.wallet,side:body.side,input,decimals:tokenSupply.decimals,slippageBps,cashLimit:cashLimit===undefined?undefined:cashLimit-(platformFee?BigInt(platformFee.lamports):0n),platformFee,rpc});
     if(buying&&swap.solAtomic>cashLimit)throw appError('Trading costs exceed this payment’s budget. Please try again.',409);
     const amountUsd=Number(swap.solAtomic)/1e9*balance.solUsd;
-    const review={amountUsd,tokens:Number(swap.tokenAtomic)/10**tokenSupply.decimals,slippageBps,provider:'PumpPortal',providerFeeBps:50};
-    const quote={...(platformFee?{platformFee}:{}),provider:'PumpPortal',solUsd:balance.solUsd,decimals:tokenSupply.decimals,transaction:swap.transaction,review};
+    const review={amountUsd,tokens:Number(swap.tokenAtomic)/10**tokenSupply.decimals,slippageBps,provider:swap.provider};
+    const quote={...(platformFee?{platformFee}:{}),provider:swap.provider,solUsd:balance.solUsd,decimals:tokenSupply.decimals,transaction:swap.transaction,review};
     const expires=new Date(Date.now()+45000),id=existing?.id||randomUUID();
     if(existing)await c.query('UPDATE cfk_orders SET amount_usd_cents=$2,input_atomic=$3,expected_token_atomic=$4,quote=$5,message_hash=$6,expires_at=$7 WHERE id=$1',[id,Math.max(1,Math.round(amountUsd*100)),input.toString(),swap.tokenAtomic.toString(),quote,sha(swap.tx.message.serialize()),expires]);
     else await c.query('INSERT INTO cfk_orders(id,user_id,wallet,side,session_id,amount_usd_cents,input_atomic,expected_token_atomic,quote,message_hash,expires_at,funding_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',[id,user.id,body.wallet,body.side,body.sessionId,Math.max(1,Math.round(amountUsd*100)),input.toString(),swap.tokenAtomic.toString(),quote,sha(swap.tx.message.serialize()),expires,funding?.id||null]);
@@ -78,7 +78,7 @@ export async function submitTrade(user,body){
       const key=createPublicKey({key:Buffer.concat([Buffer.from('302a300506032b6570032100','hex'),signed.message.staticAccountKeys[0].toBuffer()]),format:'der',type:'spki'});
       if(!verify(null,signed.message.serialize(),key,signed.signatures[0]))throw appError('The transaction signature could not be verified.',401);
       if(!order.signature&&new Date(order.expires_at)<new Date())throw appError('This price expired. Please retry for a fresh price.',409);
-    }else if(order.quote.provider==='PumpPortal')throw appError('A signed transaction is required.');
+    }else if(['Pump','PumpPortal'].includes(order.quote.provider))throw appError('A signed transaction is required.');
     await c.query("UPDATE cfk_orders SET signature=$2,status=CASE WHEN status='prepared' THEN 'submitted' ELSE status END WHERE id=$1",[order.id,signature]);
   });
   // Save the signature first so the worker can confirm even if this request is interrupted.
@@ -103,7 +103,7 @@ export async function confirmTrade(user,id){
   if(buying?change<=0n:change>=0n)throw appError('The expected coin movement was not confirmed.',409);
   const qty=buying?change:-change;
   const settledPlatformFee=verifyPlatformFee(tx,data.meta,order.wallet,order.quote.platformFee);
-  const solLamports=buying?(order.quote.provider==='PumpPortal'?BigInt(Math.max(0,data.meta.preBalances[0]-data.meta.postBalances[0])):BigInt(order.input_atomic)):BigInt(Math.max(0,data.meta.postBalances[0]-data.meta.preBalances[0]));
+  const solLamports=buying?(['Pump','PumpPortal'].includes(order.quote.provider)?BigInt(Math.max(0,data.meta.preBalances[0]-data.meta.postBalances[0])):BigInt(order.input_atomic)):BigInt(Math.max(0,data.meta.postBalances[0]-data.meta.preBalances[0]));
   const confirmedAt=new Date((data.blockTime||Math.floor(Date.now()/1000))*1000);
   await transaction(async c=>{
     await c.query('SELECT pg_advisory_xact_lock(hashtext($1))',[order.wallet]);
