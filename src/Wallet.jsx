@@ -27,7 +27,7 @@ function Bridge({onReady, onError, onCancel, activation, loginMethod}) {
   const {login} = useLogin({
     onError: error => {
       if (String(error).includes('exited_auth_flow')) { onCancel(); return; }
-      onError('Sign-in did not finish. You can try email or choose another available method.');
+      onError('Telegram sign-in did not finish. Please try again.');
     }
   });
   useEffect(() => {
@@ -35,7 +35,7 @@ function Bridge({onReady, onError, onCancel, activation, loginMethod}) {
     loginStarted.current = activation;
     // Always offer the sign-in screen after an explicit tap. Telegram context alone
     // is not proof that seamless authentication succeeded.
-    login(loginMethod ? {loginMethods: [loginMethod]} : undefined);
+    login({loginMethods: ['telegram']});
   }, [ready, authenticated, login, activation, loginMethod]);
   useEffect(() => {
     if (!authenticated || !walletsReady || !user?.id) return;
@@ -66,7 +66,7 @@ function Bridge({onReady, onError, onCancel, activation, loginMethod}) {
 export default function Wallet({appId, onReady, onError, onCancel, activation, loginMethod}) {
   return <PrivyProvider appId={appId} config={{
     appearance: {theme: 'light', accentColor: '#1683f8', logo: '/assets/cfk-coin.png', walletChainType: 'solana-only'},
-    loginMethods: ['email', 'telegram'],
+    loginMethods: ['telegram'],
     embeddedWallets: {ethereum: {createOnLogin: 'off'}, solana: {createOnLogin: 'off'}},
     solana: {rpcs: {'solana:mainnet': {rpc: createSolanaRpc(`${location.origin}/api/rpc`), rpcSubscriptions: createSolanaRpcSubscriptions('wss://api.mainnet-beta.solana.com')}}}
   }}><Bridge onReady={onReady} onError={onError} onCancel={onCancel} activation={activation} loginMethod={loginMethod}/></PrivyProvider>;
