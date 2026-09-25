@@ -1,3 +1,4 @@
+import {isSandbox} from './sandbox.mjs';
 import {randomBytes} from 'node:crypto';
 import {database,transaction} from './db.mjs';
 import {appError,sha} from './core.mjs';
@@ -23,7 +24,7 @@ export async function recordEvent(c,{id,sessionId,name,valueCents=0,metadata={}}
   if(!s)return;
   const snapshot={attribution:s.attribution,source_url:s.source_url,ip:s.ip,user_agent:s.user_agent};
   const inserted=await c.query('INSERT INTO cfk_events(id,session_id,name,value_cents,metadata) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING RETURNING id',[id,sessionId,name,valueCents,{...metadata,measurement:snapshot}]);
-  if(inserted.rows.length&&s.consent&&Date.parse(s.expires_at)>Date.now()){for(const provider of configuredDestinations(name)){await c.query('INSERT INTO cfk_deliveries(event_id,provider) VALUES($1,$2) ON CONFLICT DO NOTHING',[id,provider]);}}
+  if(!isSandbox()&&inserted.rows.length&&s.consent&&Date.parse(s.expires_at)>Date.now()){for(const provider of configuredDestinations(name)){await c.query('INSERT INTO cfk_deliveries(event_id,provider) VALUES($1,$2) ON CONFLICT DO NOTHING',[id,provider]);}}
 }
 export async function browserEvent(req,body){
   if(!['ViewContent','InitiateCheckout'].includes(body.name))throw appError('This event requires a verified server receipt.',403);
@@ -41,6 +42,7 @@ export async function rateLimit(req,kind,max=60){
   if(row.count>max)throw appError('Too many requests. Please try again shortly.',429);
 }
 export async function flushEvents(limit=25){
+  if(isSandbox())return {delivered:0};
   let delivered=0;
   for(let i=0;i<limit;i++){
     const row=await transaction(async c=>{

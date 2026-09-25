@@ -128,3 +128,8 @@ Checkout creation is idempotent per payment attempt. The funding wallet is locke
 The 15% platform fee is based on the actual gross fiat payment, converted using the actual funding exchange rate, and transferred to the captured admin address in the **same transaction** as the CFK purchase. The complete transaction is simulated and must fit Solana's size limit. Failed purchases do not collect this fee. The confirmed recipient balance and transfer are checked before recording fee revenue or a Purchase event. Purchase value is earned platform fee revenue, not payment volume. Changing the configured admin wallet does not reroute existing checkouts.
 
 Known activation gate: validate the complete current route with a funded simulation and controlled wallet signing before enabling live funding. Real payment, signing, KYC, and payout flows have not been exercised by the automated fixtures.
+
+
+### Dedicated Stripe sandbox branch
+
+Only Vercel Preview builds of `stripe-sandbox` activate the sandbox settings. Test Stripe keys and a webhook secret are required. The build creates private `cfk_sandbox` tables, enables RLS, revokes browser role access, and verifies the connection search path excludes public. Test records use those tables; ad destinations and delivery are disabled. Real trade routes, job execution and RPC broadcasting return 403. Production settings remain gated and unchanged. Use the sandbox hostname as an allowed web origin in Privy and Stripe for embedded checkout.

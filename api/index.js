@@ -1,3 +1,4 @@
+import {isSandbox} from '../server/sandbox.mjs';
 import {publicConfig,appError} from '../server/core.mjs';
 import {getMarket,getChart,getActivity,position,rpc,snapshotMarket} from '../server/market.mjs';
 import {session,browserEvent,rateLimit,flushEvents} from '../server/events.mjs';
@@ -15,6 +16,7 @@ export default async function handler(req,res){
   res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');
   const reply=(data,status=200)=>{res.statusCode=status;res.setHeader('Content-Type','application/json');res.end(JSON.stringify(data));};
   try{
+    if(isSandbox()&&(path.startsWith('/trade/')||path==='/jobs'))throw appError('Real trades and background jobs are disabled in this sandbox.',403);
     if(req.method==='GET'){
       if(path==='/config')return reply(publicConfig());
       if(path==='/market'){res.setHeader('Cache-Control','public,s-maxage=20');return reply(await getMarket());}
@@ -43,6 +45,7 @@ export default async function handler(req,res){
     if(path==='/session')return reply(await session(req,body));
     if(path==='/events')return reply(await browserEvent(req,body));
     if(path==='/rpc'){
+      if(isSandbox()&&body.method==='sendTransaction')throw appError('Real transactions are disabled in this sandbox.',403);
       if(!allowedRpc.has(body.method)||!Array.isArray(body.params||[]))throw appError('RPC method not allowed.',403);
       return reply({jsonrpc:'2.0',id:body.id??1,result:await rpc(body.method,body.params||[])});
     }

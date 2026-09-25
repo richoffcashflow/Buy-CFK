@@ -1,3 +1,4 @@
+import {isSandbox} from './sandbox.mjs';
 import {createHash,createHmac,timingSafeEqual} from 'node:crypto';
 import {stripeReady} from './stripe-config.mjs';
 export const CFK_MINT='3Rcko4DWwbLQP6vZ2Juxy3gDbv3omNkeg5np17fbpump';
@@ -39,6 +40,7 @@ export function checkoutAvailability(){
 export function publicConfig(){return {
   mint:mint(),privyAppId:process.env.PRIVY_APP_ID||null,feeBps:FEE_BPS,company:'Free Crypto App LLC',
   checkout:checkoutAvailability(),
-  tracking:{googleTagId:process.env.GOOGLE_TAG_ID||null,googleAdsId:process.env.GOOGLE_ADS_ID||null,googleConversions:{ViewContent:process.env.GOOGLE_VIEW_CONVERSION||null,InitiateCheckout:process.env.GOOGLE_CHECKOUT_CONVERSION||null,Purchase:process.env.GOOGLE_PURCHASE_CONVERSION||null},ga4ServerPurchases:Boolean(process.env.GA4_MEASUREMENT_ID&&process.env.GA4_API_SECRET),googleServerPurchases:Boolean(process.env.GOOGLE_ADS_REFRESH_TOKEN&&process.env.GOOGLE_ADS_CONVERSION_ACTION),metaPixelId:process.env.META_PIXEL_ID||null,tiktokPixelId:process.env.TIKTOK_PIXEL_ID||null,xPixelId:process.env.X_PIXEL_ID||null,xEvents:{ViewContent:process.env.X_VIEW_EVENT_ID||null,InitiateCheckout:process.env.X_CHECKOUT_EVENT_ID||null,Purchase:process.env.X_PURCHASE_EVENT_ID||null},openaiPixelId:process.env.OPENAI_PIXEL_ID||null}
+  sandbox:isSandbox(),
+  tracking:isSandbox()?{}:{googleTagId:process.env.GOOGLE_TAG_ID||null,googleAdsId:process.env.GOOGLE_ADS_ID||null,googleConversions:{ViewContent:process.env.GOOGLE_VIEW_CONVERSION||null,InitiateCheckout:process.env.GOOGLE_CHECKOUT_CONVERSION||null,Purchase:process.env.GOOGLE_PURCHASE_CONVERSION||null},ga4ServerPurchases:Boolean(process.env.GA4_MEASUREMENT_ID&&process.env.GA4_API_SECRET),googleServerPurchases:Boolean(process.env.GOOGLE_ADS_REFRESH_TOKEN&&process.env.GOOGLE_ADS_CONVERSION_ACTION),metaPixelId:process.env.META_PIXEL_ID||null,tiktokPixelId:process.env.TIKTOK_PIXEL_ID||null,xPixelId:process.env.X_PIXEL_ID||null,xEvents:{ViewContent:process.env.X_VIEW_EVENT_ID||null,InitiateCheckout:process.env.X_CHECKOUT_EVENT_ID||null,Purchase:process.env.X_PURCHASE_EVENT_ID||null},openaiPixelId:process.env.OPENAI_PIXEL_ID||null}
 };}
 export async function fetchJson(url,options={}){const response=await fetch(url,{...options,signal:AbortSignal.timeout(12000)});if(!response.ok)throw appError('A connected service is unavailable. Please try again.',502);return response.json();}

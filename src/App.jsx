@@ -171,6 +171,7 @@ export default function App(){
   const change=market?.change24h,changeText=change!=null?(change>=0?'+':'')+change.toFixed(2)+'%':'—';
   return <>
     <main className="app">
+      {config?.sandbox&&<p role="status" className="tagline">TEST MODE · No real money or CFK purchases</p>}
       <header className="coin-identity">
         <div className="coin-identity-main"><img src="/assets/cfk-coin.png" width="48" height="48" alt="Cashflow"/><div><h1>CASHFLOWKEY</h1><span>$CFK</span></div><button className="account-button" onClick={openAccount}>{account?'My position':'Sign in'}</button></div>
         <p className="brand-tagline">Buy, track, and sell $CFK.<span>All in one place.</span></p>
