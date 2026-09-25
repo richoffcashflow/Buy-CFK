@@ -15,15 +15,15 @@ button:focus-visible, a:focus-visible, input:focus-visible, [tabindex]:focus-vis
 svg { width: 20px; height: 20px; flex-shrink: 0; }
 /* Telegram's controls sit below the device status bar in fullscreen mode. */
 .app { --page-top-gap: 18px; width: min(100%, 620px); margin: auto; padding: calc(var(--page-top-gap) + max(env(safe-area-inset-top, 0px), var(--tg-safe-area-inset-top, 0px)) + var(--tg-content-safe-area-inset-top, 0px)) 16px 0; }
-.coin-identity, .coin-card, .market-card, .position-card, .activity { border: 1px solid var(--line); border-radius: 24px; background: #fff; }
+.coin-identity, .coin-card, .market-card, .position-card, .activity, .creator-card { border: 1px solid var(--line); border-radius: 24px; background: #fff; }
 .coin-identity { display: flex; flex-direction: column; gap: 12px; padding: 18px; margin-bottom: 14px; box-shadow: 0 8px 24px #102e4e04; }
 .coin-identity-main { display: flex; align-items: center; gap: inherit; }
 .coin-identity-main > img { flex-shrink: 0; width: 48px; height: 48px; border-radius: 50%; background: #000; }
 .coin-identity h1 { font-size: 23px; font-weight: 900; letter-spacing: -.8px; line-height: 1.1; margin: 0 0 6px; }
 .coin-identity div > span { color: var(--muted); font-size: 14px; font-weight: 700; }
 .account-button { margin-left: auto; background: var(--blue-light); border: 0; padding: 11px 12px; border-radius: 25px; color: var(--blue-dark); font-size: 12px; font-weight: 750; white-space: nowrap; min-height: 42px; }
-.creator-socials { display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--line); padding-top: 8px; }
-.creator-socials > span { margin-right: auto; font-size: 12px; color: var(--muted); font-weight: 650; }
+.creator-card { margin-top: 14px; padding: 21px 20px; }
+.creator-socials { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
 .creator-socials a { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: #f5f6f8; }
 .creator-socials a:hover { background: var(--blue-light); }
 .creator-socials img { width: 19px; height: 19px; border-radius: 0; background: none; }
