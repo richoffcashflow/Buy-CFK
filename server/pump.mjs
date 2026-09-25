@@ -1,5 +1,6 @@
 import {PublicKey,VersionedTransaction,AddressLookupTableAccount} from '@solana/web3.js';
 import {mint,SOL_MINT,appError} from './core.mjs';
+import {appendPlatformFee} from './platform-fee.mjs';
 
 export const PUMP_PROGRAM='6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P';
 export const PUMP_AMM='pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA';
@@ -56,12 +57,12 @@ export function pumpEvents(data,signature,decimals){
   }
   return items.slice(0,1);
 }
-export async function pumpTransaction({wallet,side,input,decimals,slippageBps=100,cashLimit,rpc}){
+export async function pumpTransaction({wallet,side,input,decimals,slippageBps=100,cashLimit,platformFee,rpc}){
   const response=await fetch('https://pumpportal.fun/api/trade-local',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({publicKey:wallet,action:side,mint:mint(),amount:Number(input)/10**(side==='buy'?9:decimals),denominatedInSol:side==='buy'?'true':'false',slippage:slippageBps/100,priorityFee:0.00005,pool:'auto'}),signal:AbortSignal.timeout(12000)});
   if(!response.ok)throw appError('A trade is not available for this amount right now. Please try again.',503);
   const bytes=new Uint8Array(await response.arrayBuffer());
   if(bytes.length>1232)throw appError('The trade response could not be verified.',502);
-  const tx=VersionedTransaction.deserialize(bytes);
+  let tx=VersionedTransaction.deserialize(bytes);
   if(tx.message.header.numRequiredSignatures!==1||tx.message.staticAccountKeys[0].toBase58()!==wallet)throw appError('The trade does not match your account.',502);
   const tables=[];
   for(const lookup of tx.message.addressTableLookups||[]){const a=(await rpc('getAccountInfo',[lookup.accountKey.toBase58(),{encoding:'base64',commitment:'confirmed'}])).value;if(!a)throw appError('The trade route could not be verified.',502);tables.push(new AddressLookupTableAccount({key:lookup.accountKey,state:AddressLookupTableAccount.deserialize(Buffer.from(a.data[0],'base64'))}));}
@@ -76,14 +77,18 @@ export async function pumpTransaction({wallet,side,input,decimals,slippageBps=10
   const mintAccount=(await rpc('getAccountInfo',[mint(),{encoding:'base64',commitment:'confirmed'}])).value;
   if(![TOKEN_PROGRAM,TOKEN_2022].includes(mintAccount?.owner))throw appError('The coin could not be verified.',503);
   const ata=PublicKey.findProgramAddressSync([new PublicKey(wallet).toBuffer(),new PublicKey(mintAccount.owner).toBuffer(),new PublicKey(mint()).toBuffer()],new PublicKey(ATA_PROGRAM))[0].toBase58();
-  const before=(await rpc('getMultipleAccounts',[[wallet,ata],{encoding:'base64',commitment:'confirmed'}])).value;
-  const serialized=Buffer.from(bytes).toString('base64');
-  const simulated=await rpc('simulateTransaction',[serialized,{encoding:'base64',sigVerify:false,commitment:'confirmed',accounts:{encoding:'base64',addresses:[wallet,ata]}}]);
+  if(platformFee){if(side!=='buy')throw appError('Invalid fee direction.',502);tx=appendPlatformFee(tx,tables,wallet,platformFee);}
+  const addresses=[wallet,ata,...(platformFee?[platformFee.recipient]:[])];
+  const before=(await rpc('getMultipleAccounts',[addresses,{encoding:'base64',commitment:'confirmed'}])).value;
+  const serialized=Buffer.from(tx.serialize()).toString('base64');
+  const simulated=await rpc('simulateTransaction',[serialized,{encoding:'base64',sigVerify:false,commitment:'confirmed',accounts:{encoding:'base64',addresses}}]);
   if(simulated.value?.err||!simulated.value?.accounts?.[0])throw appError('This trade cannot complete right now. Try a smaller amount.',409);
   const tokenAmount=a=>a?.data?.[0]?Buffer.from(a.data[0],'base64').readBigUInt64LE(64):0n;
   const after=simulated.value.accounts;
   const tokenDelta=tokenAmount(after[1])-tokenAmount(before[1]);
   const cashDelta=BigInt(after[0].lamports)-BigInt(before[0]?.lamports||0);
-  if(side==='buy'?(tokenDelta<=0n||cashDelta>=0n||-cashDelta>input*101n/100n+6000000n):(tokenDelta!==-input||cashDelta<=0n))throw appError('The expected trade amounts could not be verified.',502);
+  const feeLamports=platformFee?BigInt(platformFee.lamports):0n;
+  if(platformFee&&(!Number.isSafeInteger(after[2]?.lamports)||BigInt(after[2].lamports)-BigInt(before[2]?.lamports||0)!==feeLamports))throw appError('The platform fee could not be simulated.',502);
+  if(side==='buy'?(tokenDelta<=0n||cashDelta>=0n||-cashDelta>input*101n/100n+6000000n+feeLamports):(tokenDelta!==-input||cashDelta<=0n))throw appError('The expected trade amounts could not be verified.',502);
   return {transaction:serialized,tx,tokenAtomic:side==='buy'?tokenDelta:input,solAtomic:side==='buy'?-cashDelta:cashDelta,provider:'PumpPortal',providerFeeBps:50};
 }

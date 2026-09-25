@@ -1,16 +1,10 @@
-// Server-only, read-only connection check. Never import this module in the browser.
+// Server-only connection check. Never import this module in the browser.
 // A successful quote proves quote access, not session approval, fee collection,
 // a completed payment, or a working CFK purchase/off-ramp.
 const API_ORIGIN='https://api.stripe.com';
+import {stripeConfiguration} from './stripe-config.mjs';
+export {stripeConfiguration} from './stripe-config.mjs';
 const allowedCodes=new Set(['api_key_expired','invalid_api_key','permission_denied','account_invalid','rate_limit','resource_missing','parameter_unknown','parameter_invalid_integer','parameter_invalid_empty','parameter_missing']);
-
-export function stripeConfiguration(env=process.env){
-  const secret=env.STRIPE_SECRET_KEY?.trim()||'';
-  const publishable=env.STRIPE_PUBLISHABLE_KEY?.trim()||'';
-  const secretMode=/^sk_(live|test)_[A-Za-z0-9]+$/.exec(secret)?.[1]||null;
-  const publishableMode=/^pk_(live|test)_[A-Za-z0-9]+$/.exec(publishable)?.[1]||null;
-  return {secretKey:secretMode?'configured':secret?'invalid_format':'missing',mode:secretMode,publishableKey:publishableMode?'configured':publishable?'invalid_format':'missing',matchingModes:Boolean(secretMode&&secretMode===publishableMode)};
-}
 
 export async function checkStripeOnramp({env=process.env,fetchImpl=fetch}={}){
   const configuration=stripeConfiguration(env);

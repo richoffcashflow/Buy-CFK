@@ -54,3 +54,8 @@ CREATE TABLE IF NOT EXISTS cfk_market_samples (
  PRIMARY KEY(mint,observed_at)
 );
 ALTER TABLE cfk_market_samples ENABLE ROW LEVEL SECURITY;
+
+CREATE TABLE IF NOT EXISTS cfk_stripe_settlements (
+ transaction_id text PRIMARY KEY, ramp_id uuid NOT NULL UNIQUE REFERENCES cfk_ramps(id)
+);
+ALTER TABLE cfk_stripe_settlements ENABLE ROW LEVEL SECURITY;

@@ -1,10 +1,11 @@
 import React,{lazy,Suspense,useCallback,useEffect,useId,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {api,formatMoney,formatNumber} from './utils.js';
-import {captureAttribution,getSession,getCheckoutId,track,setConsent,getConsent} from './tracking.js';
+import {captureAttribution,getSession,track,setConsent,getConsent} from './tracking.js';
 import Legal from './Legal.jsx';
 import PriceChart from './PriceChart.jsx';
 import TradeDock from './TradeDock.jsx';
+import StripeCheckout from './StripeCheckout.jsx';
 import {walletForAction} from './wallet-lifecycle.js';
 const Wallet=lazy(()=>import('./Wallet.jsx'));
 const MINT='3Rcko4DWwbLQP6vZ2Juxy3gDbv3omNkeg5np17fbpump';
@@ -52,7 +53,7 @@ export default function App(){
   const [walletActive,setWalletActive]=useState(false);
   const [activation,setActivation]=useState(0),[account,setAccount]=useState(null),[busy,setBusy]=useState(false);
   const bridgeRef=useRef(null),lock=useRef(false),queuedAction=useRef(null),pendingRef=useRef(readPending());
-  const savePending=data=>{pendingRef.current=data;if(data)remember.set('cfk_pending',JSON.stringify(data));else remember.remove('cfk_pending');};
+  const savePending=data=>{pendingRef.current=data;if(data)remember.set('cfk_pending',JSON.stringify(data));else {remember.remove('cfk_pending');remember.remove('cfk_payment_attempt');}};
   const setLock=value=>{lock.current=value;setBusy(value);};
   const refreshPosition=useCallback(async()=>{const b=bridgeRef.current;if(!b)return;if(!b.address){setPosition({valueUsd:0,tokens:0,availableUsd:0});return;}try{const next=await api('/position?wallet='+b.address);setPosition(next);}catch{}},[]);
   useEffect(()=>{
@@ -101,8 +102,11 @@ export default function App(){
       const address=await walletForAction(b,action.side,config.checkout);
       if(action.side==='buy'||action.side==='withdraw'){
         const direction=action.side==='buy'?'onramp':'offramp';
-        const data=await api('/ramp/session',{method:'POST',token,body:{wallet:address,direction,grossCents:Math.round(action.amountUsd*100),sessionId:session.id,checkoutId:getCheckoutId(),intent:action.side}});
-        setFlow({step:'ramp-review',direction,...data});
+        let attempt;try{attempt=JSON.parse(remember.get('cfk_payment_attempt')||'null');}catch{}
+        if(!attempt||attempt.amountUsd!==action.amountUsd||attempt.wallet!==address||attempt.direction!==direction){attempt={id:crypto.randomUUID(),amountUsd:action.amountUsd,wallet:address,direction};remember.set('cfk_payment_attempt',JSON.stringify(attempt));}
+        const data=await api('/ramp/session',{method:'POST',token,body:{wallet:address,direction,grossCents:Math.round(action.amountUsd*100),sessionId:session.id,checkoutId:attempt.id,intent:action.side}});
+        if(data.existingPayment){savePending({type:'payment',direction,provider:data.provider,rampId:data.rampId});setFlow({step:'pending',message:'Checking your existing payment…'});}
+        else setFlow({step:'ramp-review',direction,...data});
       }else{
         const data=await api('/trade/prepare',{method:'POST',token,body:{wallet:address,side:'sell',amountUsd:action.amountUsd,sessionId:session.id}});
         await execute(data,'sell');
@@ -136,7 +140,9 @@ export default function App(){
       if(pending.type==='trade'){await confirmPending(pending);return;}
       const result=await api('/ramp/status?id='+pending.rampId,{token:await bridgeRef.current.getAccessToken()});
       if(result.status==='failed'){savePending(null);throw new Error('The payment did not complete.');}
-      if(result.status!=='completed'){setFlow({step:'checkout',...pending});return;}
+      if(result.status==='review_required'){setFlow({step:'funding-review',...result});return;}
+      if(result.status==='sandbox_complete'){savePending(null);setFlow({step:'sandbox-complete'});return;}
+      if(result.status!=='completed'){setFlow({step:'checkout',...pending,...result});return;}
       if(result.direction==='offramp'){savePending(null);setFlow({step:'paid'});await refreshPosition();return;}
       if(result.event)track('InitiateCheckout',{...result.event,trigger:'money_added'},config,{verified:true}).catch(()=>{});
       savePending({...pending,type:'funded'});await buyFunded(pending);
@@ -152,7 +158,14 @@ export default function App(){
     else {setFlow({step:'idle'});setModal(null);}
   },[account,config]);
   useEffect(()=>{if(!account||!['checkout','pending'].includes(flow.step))return;const t=setInterval(()=>resume(),5000);return()=>clearInterval(t);},[account,flow.step]);
-  function openPayment(){const pending={type:'payment',direction:flow.direction,rampId:flow.rampId,checkoutUrl:flow.checkoutUrl,grossCents:flow.grossCents,netCents:flow.netCents};savePending(pending);setFlow({step:'checkout',...pending});}
+  function openPayment(){const pending={type:'payment',provider:flow.provider,direction:flow.direction,rampId:flow.rampId,checkoutUrl:flow.checkoutUrl,grossCents:flow.grossCents,netCents:flow.netCents};savePending(pending);setFlow({...flow,...pending,step:'checkout'});}
+  async function approveFunding(){
+    if(lock.current)return;setLock(true);
+    try{const result=await api('/ramp/approve',{method:'POST',token:await bridgeRef.current.getAccessToken(),body:{rampId:flow.rampId,reviewToken:flow.reviewToken}});
+      if(result.status==='review_required'){setFlow({step:'funding-review',...result});return;}
+      setFlow({step:'pending',message:'Your payment is verified. Preparing your CFK purchase…'});
+    }catch(e){setFlow({step:'blocked',message:e.message});}finally{setLock(false);}
+  }
   function chooseConsent(value){setConsent(value);setConsentState(getConsent());track('ViewContent',{trigger:'coin_page'},config).catch(()=>{});if(modal==='measurement')setModal(null);}
   const close=()=>{if(lock.current)return;queuedAction.current=null;setModal(null);};
   const change=market?.change24h,changeText=change!=null?(change>=0?'+':'')+change.toFixed(2)+'%':'—';
@@ -187,8 +200,10 @@ export default function App(){
     {modal==='transaction'&&<Modal title={flow.step==='auth-error'?'Sign in to continue':intent==='withdraw'?'Withdraw cash':intent==='sell'?'Sell CFK':'Buy CFK'} onClose={close}>
       {flow.step==='auth-error'&&<div className="flow-state"><h3>Let’s try signing in again</h3><p role="status">{flow.message}</p><button className="primary" onClick={()=>signIn('email')}>Continue with email</button><button className="secondary" onClick={()=>signIn()}>Choose sign-in method</button></div>}
       {['idle','loading','buying','confirming'].includes(flow.step)&&<div className="flow-state"><div className="spinner"/><h3>{flow.step==='idle'?'Getting you ready':flow.step==='confirming'?'Confirming your transaction':flow.step==='buying'?(flow.side==='sell'?'Selling your CFK':'Buying your CFK'):'Preparing your amount'}</h3><p>{flow.step==='idle'?'A quick sign-in keeps your coins yours.':'You can follow the progress here.'}</p></div>}
-      {flow.step==='ramp-review'&&<div className="review"><h3>{formatMoney(flow.grossCents/100)}</h3><dl><div><dt>Platform fee · 15%</dt><dd>{formatMoney(flow.platformFeeCents/100)}</dd></div><div><dt>Payment provider fee</dt><dd>{formatMoney(flow.providerFeeCents/100)}</dd></div><div><dt>{flow.direction==='onramp'?'Available for CFK & extra costs':'Estimated cash payout'}</dt><dd>{formatMoney(flow.netCents/100)}</dd></div></dl><p>{flow.direction==='onramp'?'After payment is confirmed, we automatically buy CFK with these funds, allowing up to 1% price movement. Coin purchase and network costs are extra. Any unused funds stay available to withdraw.':'Complete the payment provider’s withdrawal process to receive your cash.'}</p><button className="primary" onClick={openPayment}>{flow.direction==='onramp'?'Pay '+formatMoney(flow.grossCents/100)+' & buy CFK':'Continue withdrawal'}</button></div>}
-      {flow.step==='checkout'&&<><iframe className="checkout-frame" src={flow.checkoutUrl} title="Secure payment" allow="payment" referrerPolicy="no-referrer"/><p className="dialog-copy">{flow.direction==='onramp'?'Your CFK purchase starts automatically after your payment is verified.':'Your payout is confirmed by the payment provider.'}</p><button className="secondary" disabled={busy} onClick={resume}>Check payment</button></>}
+      {flow.step==='ramp-review'&&<div className="review"><h3>{formatMoney(flow.grossCents/100)}</h3><dl><div><dt>Platform fee · 15%</dt><dd>{formatMoney(flow.platformFeeCents/100)}</dd></div><div><dt>Payment provider fee</dt><dd>{formatMoney(flow.providerFeeCents/100)}</dd></div><div><dt>{flow.direction==='onramp'?'Available for CFK & extra costs':'Estimated cash payout'}</dt><dd>{formatMoney(flow.netCents/100)}</dd></div></dl><p>{flow.direction==='onramp'?'After payment is confirmed, we automatically buy CFK with these funds, allowing up to 1% price movement. Coin purchase and network costs are extra. Any unused funds stay in your account.':'Complete the payment provider’s withdrawal process to receive your cash.'}</p><button className="primary" onClick={openPayment}>{flow.direction==='onramp'?'Pay '+formatMoney(flow.grossCents/100)+' & buy CFK':'Continue withdrawal'}</button></div>}
+      {flow.step==='checkout'&&<>{flow.provider==='stripe'?(flow.clientSecret?<StripeCheckout publishableKey={flow.publishableKey} clientSecret={flow.clientSecret} onUpdate={resume}/>:<p role="status">Restoring your secure payment…</p>):<iframe className="checkout-frame" src={flow.checkoutUrl} title="Secure payment" allow="payment" referrerPolicy="no-referrer"/>}<p className="dialog-copy">{flow.direction==='onramp'?'Your CFK purchase starts automatically after your payment is verified.':'Your payout is confirmed by the payment provider.'}</p><button className="secondary" disabled={busy} onClick={resume}>Check payment</button></>}
+      {flow.step==='funding-review'&&<div className="review"><h3>Your payment amount changed</h3><p>You paid {formatMoney(flow.grossCents/100)}. Review the updated amounts before buying CFK.</p><dl><div><dt>Platform fee · 15%</dt><dd>{formatMoney(flow.platformFeeCents/100)}</dd></div><div><dt>Payment provider fee</dt><dd>{formatMoney(flow.providerFeeCents/100)}</dd></div><div><dt>Available for CFK & extra costs</dt><dd>{formatMoney(flow.netCents/100)}</dd></div></dl><button className="primary" disabled={busy} onClick={approveFunding}>Accept & buy CFK</button><button className="secondary" onClick={close}>Decide later</button></div>}
+      {flow.step==='sandbox-complete'&&<div className="flow-state"><h3>Test payment complete</h3><p>No real money moved and no CFK was purchased.</p><button className="secondary" onClick={close}>Done</button></div>}
       {['blocked','funded-error','pending'].includes(flow.step)&&<div className="flow-state"><h3>{flow.step==='funded-error'?'Payment received':flow.step==='pending'?'Still confirming':'Unable to continue'}</h3><p role="status">{flow.step==='funded-error'?'Your payment arrived, but the coin purchase needs attention. '+flow.message:flow.message}</p>{pendingRef.current&&<button className="primary" onClick={resume} disabled={busy}>Check again</button>}<button className="secondary" onClick={close}>Back to CFK</button></div>}
       {flow.step==='complete'&&<div className="flow-state"><Icon name="check"/><h3>{flow.side==='sell'?'Your CFK is sold':'Your CFK is yours'}</h3><p>{flow.side==='sell'?'Your proceeds are available in dollars. You can withdraw your cash now.':'Your position has been updated.'}</p>{flow.side==='sell'&&position?.availableUsd>.01&&<button className="primary" onClick={()=>begin('withdraw',Math.floor(position.availableUsd*100)/100)}>Withdraw {formatMoney(position.availableUsd)}</button>}<button className="secondary" onClick={close}>Done</button></div>}
       {flow.step==='paid'&&<div className="flow-state"><Icon name="check"/><h3>Withdrawal confirmed</h3><p>Your payment provider has confirmed the payout. Arrival time depends on your payment method.</p><button className="secondary" onClick={close}>Done</button></div>}

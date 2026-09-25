@@ -3,15 +3,18 @@ import {feeBreakdown,fetchJson,appError,checkWebhook,validAddress,checkoutAvaila
 import {database,transaction} from './db.mjs';
 import {getSession,recordEvent} from './events.mjs';
 import {position} from './market.mjs';
+import {stripeReady} from './stripe-config.mjs';
+import {createStripeRamp,reconcileStripeRamp} from './stripe-payments.mjs';
 function providerBase(){if(process.env.RAMP_ENABLED!=='true'||!process.env.RAMP_ADAPTER_URL||!process.env.RAMP_ADAPTER_KEY)throw appError('Card payments and cash withdrawals are not available yet. The payment provider is being connected. Your money has not moved.',503);const url=new URL(process.env.RAMP_ADAPTER_URL);if(url.protocol!=='https:')throw appError('The payment connection is not ready.',503);return url.origin+url.pathname.replace(/\/$/,'');}
 async function providerRequest(path,body){return fetchJson(providerBase()+path,{method:body?'POST':'GET',headers:{Authorization:`Bearer ${process.env.RAMP_ADAPTER_KEY}`,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined});}
 export function rampPreflight(body){
   if(!checkoutAvailability().buyEnabled)throw appError('Buying is being connected. No payment has been taken.',503);
-  providerBase();
+  if(!stripeReady())providerBase();
   feeBreakdown(body.grossCents);
   return {ready:true};
 }
 export async function createRamp(user,body){
+  if(body.direction==='onramp'&&process.env.STRIPE_ONRAMP_ENABLED==='true')return createStripeRamp(user,body);
   if(body.direction==='onramp'&&body.intent==='buy'&&process.env.TRADING_ENABLED!=='true')throw appError('Buying is being connected. No payment has been taken.',503);
   providerBase();
   if(!['onramp','offramp'].includes(body.direction)||!validAddress(body.wallet))throw appError('Invalid payment request.');
@@ -31,6 +34,7 @@ export async function createRamp(user,body){
   return {rampId:id,providerName:process.env.RAMP_PROVIDER_NAME||'Payment provider',checkoutUrl:url.toString(),...expected};
 }
 export async function reconcileRamp(row){
+  if(row.quote?.provider==='stripe')return reconcileStripeRamp(row);
   if(row.status==='completed')return {status:'completed',direction:row.direction,event:row.direction==='onramp'?{eventId:`checkout_${row.session_id}_${row.checkout_id}`} :null};
   if(!row.provider_id)return {status:row.status};
   const payment=await providerRequest('/sessions/'+encodeURIComponent(row.provider_id));
@@ -49,7 +53,7 @@ export async function reconcileRamp(row){
   });
   return {status:'completed',direction:row.direction,event:row.direction==='onramp'?{eventId:`checkout_${row.session_id}_${row.checkout_id}`} :null};
 }
-export async function rampStatus(user,id){const row=(await database().query('SELECT * FROM cfk_ramps WHERE id=$1 AND user_id=$2',[id,user.id])).rows[0];if(!row)throw appError('Payment not found.',404);return reconcileRamp(row);}
+export async function rampStatus(user,id){const row=(await database().query('SELECT * FROM cfk_ramps WHERE id=$1 AND user_id=$2',[id,user.id])).rows[0];if(!row)throw appError('Payment not found.',404);return row.quote?.provider==='stripe'?reconcileStripeRamp(row,{includeCheckout:true}):reconcileRamp(row);}
 export async function rampWebhook(req,raw){
   if(!checkWebhook(raw,req.headers['x-cfk-timestamp'],req.headers['x-cfk-signature'],process.env.RAMP_WEBHOOK_SECRET))throw appError('Invalid webhook signature.',401);
   let body;try{body=JSON.parse(raw);}catch{throw appError('Invalid webhook.');}
@@ -57,4 +61,11 @@ export async function rampWebhook(req,raw){
   const row=(await database().query('SELECT * FROM cfk_ramps WHERE id=$1',[body.merchantReference])).rows[0];if(!row)throw appError('Payment not found.',404);
   await reconcileRamp(row);return {received:true};
 }
-export async function reconcileRamps(){if(process.env.RAMP_ENABLED!=='true')return 0;const rows=(await database().query("SELECT * FROM cfk_ramps WHERE status='pending' ORDER BY created_at LIMIT 10")).rows;let count=0;for(const row of rows){try{if((await reconcileRamp(row)).status==='completed')count++;}catch{}}return count;}
+export async function reconcileRamps(){if(process.env.RAMP_ENABLED!=='true'&&!process.env.STRIPE_SECRET_KEY)return 0;const rows=(await database().query("SELECT * FROM cfk_ramps WHERE status IN ('pending','review_required') ORDER BY created_at LIMIT 10")).rows;let count=0;for(const row of rows){try{if((await reconcileRamp(row)).status==='completed')count++;}catch{}}return count;}
+
+export async function approveRamp(user,body){
+  const row=(await database().query('SELECT * FROM cfk_ramps WHERE id=$1 AND user_id=$2',[body.rampId,user.id])).rows[0];
+  if(!row||row.quote?.provider!=='stripe')throw appError('Payment not found.',404);
+  if(typeof body.reviewToken!=='string'||!body.reviewToken)throw appError('Review the payment before continuing.');
+  return reconcileStripeRamp(row,{approval:body.reviewToken});
+}

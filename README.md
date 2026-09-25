@@ -108,3 +108,23 @@ The unlinked, no-index `/layout-preview.html` page renders the real app at two m
 Sources: [PumpPortal Local API](https://pumpportal.fun/local-trading-api/trading-api/), [PumpPortal fees](https://pumpportal.fun/fees/), [Pump.fun protocol IDLs](https://github.com/pump-fun/pump-public-docs), [Solana account queries](https://solana.com/docs/rpc/http/getprogramaccounts).
 
 Sign-in is explicitly available in Telegram as well as the browser, with an email retry if Telegram authentication fails. The app releases its own dialog before opening Privy and keeps transaction dialogs below provider overlays. In Privy, enable **Telegram** itself as well as **seamless Mini App login**; the seamless checkbox alone does not enable Telegram authentication.
+
+
+### Stripe embedded onramp
+
+Stripe funding is implemented but disabled until activation. Keep `STRIPE_ONRAMP_ENABLED=false` and `TRADING_ENABLED=false` until a sandbox checkout and the current CFK route/signing flow have been verified. Stripe does not provide this app's off-ramp; the existing withdrawal adapter remains separately gated.
+
+Required server configuration:
+
+- `STRIPE_SECRET_KEY` and `STRIPE_PUBLISHABLE_KEY`: matching API key modes from the approved onramp account.
+- `STRIPE_ONRAMP_WEBHOOK_SECRET`: signing secret for onramp session notifications sent to `https://buy-cfk.vercel.app/api/stripe/webhook`.
+- `PLATFORM_FEE_WALLET`: the owner's admin Privy wallet's **public Solana address**. No private key is required. Do not substitute a creator or token address.
+- Register the actual mini app origin with Stripe. Marketing domains that redirect to Telegram are not the embedded checkout origin.
+
+Production builds add and verify the private settlement uniqueness table in the project's configured database. Other environments use `npm run db:migrate`. The public schema enables RLS and has no browser policies.
+
+Checkout creation is idempotent per payment attempt. The funding wallet is locked in Stripe. Client secrets are returned only to the authenticated owner and kept in memory, not browser storage or logs. Payment notifications require Stripe's timestamped HMAC signature; settlement is re-fetched from Stripe and its finalized Solana delivery is verified. Sandbox receipts never authorize mainnet trades. If Stripe's final dollar total exceeds the user's reviewed total, the app requests approval of the updated amount before buying.
+
+The 15% platform fee is based on the actual gross fiat payment, converted using the actual funding exchange rate, and transferred to the captured admin address in the **same transaction** as the CFK purchase. The complete transaction is simulated and must fit Solana's size limit. Failed purchases do not collect this fee. The confirmed recipient balance and transfer are checked before recording fee revenue or a Purchase event. Purchase value is earned platform fee revenue, not payment volume. Changing the configured admin wallet does not reroute existing checkouts.
+
+Known activation gate: PumpPortal can return a route wrapper that this app does not yet support. Do not broaden the program allowlist or enable live funding without validating the current route. Real payment, signing, KYC, and payout flows have not been exercised by the automated fixtures.

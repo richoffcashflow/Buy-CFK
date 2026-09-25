@@ -1,4 +1,5 @@
 import {createHash,createHmac,timingSafeEqual} from 'node:crypto';
+import {stripeReady} from './stripe-config.mjs';
 export const CFK_MINT='3Rcko4DWwbLQP6vZ2Juxy3gDbv3omNkeg5np17fbpump';
 export const SOL_MINT='So11111111111111111111111111111111111111112';
 export const FEE_BPS=1500;
@@ -33,7 +34,7 @@ export function checkoutAvailability(){
   let adapterReady=false;
   try{adapterReady=new URL(process.env.RAMP_ADAPTER_URL).protocol==='https:';}catch{}
   const paymentsReady=Boolean(process.env.RAMP_ENABLED==='true'&&adapterReady&&process.env.RAMP_ADAPTER_KEY&&process.env.RAMP_WEBHOOK_SECRET&&process.env.RAMP_ALLOWED_ORIGINS);
-  return {buyEnabled:paymentsReady&&process.env.TRADING_ENABLED==='true',withdrawEnabled:paymentsReady};
+  return {buyEnabled:(paymentsReady||stripeReady())&&process.env.TRADING_ENABLED==='true',withdrawEnabled:paymentsReady};
 }
 export function publicConfig(){return {
   mint:mint(),privyAppId:process.env.PRIVY_APP_ID||null,feeBps:FEE_BPS,company:'Free Crypto App LLC',

@@ -7,6 +7,7 @@ import {PGlite} from '@electric-sql/pglite';
 import {Keypair,TransactionMessage,VersionedTransaction,SystemProgram} from '@solana/web3.js';
 import {CFK_MINT,sha} from '../server/core.mjs';
 import {submitTrade,confirmTrade} from '../server/trade.mjs';
+import {appendPlatformFee} from '../server/platform-fee.mjs';
 
 test('confirmed buys are idempotent; pending, failed, and mismatched transactions cannot create purchases',async()=>{
   const db=new PGlite();await db.exec(await readFile(new URL('../server/schema.sql',import.meta.url),'utf8'));
@@ -74,6 +75,28 @@ test('confirmed buys are idempotent; pending, failed, and mismatched transaction
     const duplicate=await order();
     await assert.rejects(db.query('UPDATE cfk_orders SET funding_id=$2 WHERE id=$1',[duplicate,funding]),{code:'23505'});
     assert.equal((await db.query("SELECT count(*) FROM cfk_events WHERE name='Purchase'")).rows[0].count,2);
+    const admin=Keypair.generate().publicKey,fee={recipient:admin.toBase58(),lamports:'300',cents:300};
+    const atomic=appendPlatformFee(tx,[],wallet,fee);atomic.sign([payerKey]);
+    const atomicEncoded=Buffer.from(atomic.serialize()).toString('base64'),stripeFunding=randomUUID();
+    await db.query("INSERT INTO cfk_ramps(id,user_id,wallet,direction,session_id,checkout_id,gross_cents,platform_fee_cents,net_cents,status,quote) VALUES($1,$2,$3,'onramp',$4,$5,2000,300,1500,'completed',$6)",[stripeFunding,user.id,wallet,session,randomUUID(),{provider:'stripe',intent:'buy'}]);
+    await db.query('INSERT INTO cfk_fee_lots(id,wallet,remaining_units,original_units,remaining_fee_cents,original_fee_cents) VALUES($1,$2,1000,1000,0,0)',[stripeFunding,wallet]);
+    const atomicOrder=await order(sha(atomic.message.serialize()));
+    await db.query('UPDATE cfk_orders SET funding_id=$2,quote=$3 WHERE id=$1',[atomicOrder,stripeFunding,{provider:'PumpPortal',solUsd:100,platformFee:fee}]);
+    await submitTrade(user,{orderId:atomicOrder,transaction:atomicEncoded});
+    const adminIndex=atomic.message.staticAccountKeys.findIndex(k=>k.equals(admin));
+    const preBalances=Array(atomic.message.staticAccountKeys.length).fill(0),postBalances=[...preBalances];
+    preBalances[0]=10000;postBalances[0]=9200;
+    chainData={transaction:[atomicEncoded,'base64'],blockTime:1790251200,meta:{err:null,preBalances,postBalances,preTokenBalances:[],postTokenBalances:[{owner:wallet,mint:CFK_MINT,uiTokenAmount:{amount:'2000'}}]}};
+    // A bought coin without the exact admin transfer must not report earned revenue.
+    await assert.rejects(confirmTrade(user,atomicOrder),{status:409});
+    assert.equal((await db.query("SELECT count(*) FROM cfk_events WHERE name='Purchase'")).rows[0].count,2);
+    chainData.meta.postBalances[adminIndex]=300;
+    const atomicReceipt=await confirmTrade(user,atomicOrder);assert.equal(atomicReceipt.event.valueCents,300);
+    assert.deepEqual(await confirmTrade(user,atomicOrder),atomicReceipt);
+    const trade=(await db.query('SELECT fee_revenue_cents,cost_cents FROM cfk_trades WHERE id=$1',[atomicOrder])).rows[0];
+    assert.equal(Number(trade.fee_revenue_cents),300);assert.equal(Number(trade.cost_cents),0); // Synthetic lamports round to 0 cents; fee is not added twice.
+    assert.equal((await db.query("SELECT count(*) FROM cfk_events WHERE name='Purchase'")).rows[0].count,3);
+
 
   }finally{
     pg.Pool.prototype.query=realQuery;pg.Pool.prototype.connect=realConnect;globalThis.fetch=realFetch;
