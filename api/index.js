@@ -3,7 +3,7 @@ import {getMarket,getChart,getActivity,position,rpc,snapshotMarket} from '../ser
 import {session,browserEvent,rateLimit,flushEvents} from '../server/events.mjs';
 import {authenticate} from '../server/auth.mjs';
 import {prepareTrade,submitTrade,confirmTrade,reconcileTrades} from '../server/trade.mjs';
-import {createRamp,rampStatus,rampWebhook,reconcileRamps} from '../server/ramp.mjs';
+import {createRamp,rampPreflight,rampStatus,rampWebhook,reconcileRamps} from '../server/ramp.mjs';
 import {database} from '../server/db.mjs';
 export const config={api:{bodyParser:false},maxDuration:60};
 async function rawBody(req){if(typeof req.body==='string')return req.body;if(Buffer.isBuffer(req.body))return req.body.toString('utf8');if(req.body&&typeof req.body==='object')return JSON.stringify(req.body);const chunks=[];let length=0;for await(const chunk of req){length+=chunk.length;if(length>100000)throw appError('Request too large.',413);chunks.push(Buffer.from(chunk));}return Buffer.concat(chunks).toString('utf8');}
@@ -45,6 +45,7 @@ export default async function handler(req,res){
       return reply({jsonrpc:'2.0',id:body.id??1,result:await rpc(body.method,body.params||[])});
     }
     const user=await authenticate(req,body.wallet);
+    if(path==='/ramp/preflight')return reply(rampPreflight(body));
     if(path==='/trade/prepare')return reply(await prepareTrade(user,body));
     if(path==='/trade/submit')return reply(await submitTrade(user,body));
     if(path==='/trade/confirm')return reply(await confirmTrade(user,body.orderId));

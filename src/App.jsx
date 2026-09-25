@@ -5,8 +5,20 @@ import {captureAttribution,getSession,getCheckoutId,track,setConsent,getConsent}
 import Legal from './Legal.jsx';
 import PriceChart from './PriceChart.jsx';
 import TradeDock from './TradeDock.jsx';
+import {walletForAction} from './wallet-lifecycle.js';
 const Wallet=lazy(()=>import('./Wallet.jsx'));
 const MINT='3Rcko4DWwbLQP6vZ2Juxy3gDbv3omNkeg5np17fbpump';
+const CREATOR_SOCIALS=[
+  {name:'YouTube',icon:'youtube',url:'https://www.youtube.com/@cashflowkeyy'},
+  {name:'Instagram',icon:'instagram',url:'https://www.instagram.com/cashflowkeyy/'},
+  {name:'X',icon:'x',url:'https://x.com/cashflowkey'},
+  {name:'TikTok',icon:'tiktok',url:'https://www.tiktok.com/@richoffcashflow'}
+];
+function openSocial(event,url){
+  const tg=window.Telegram?.WebApp;
+  if(!tg?.initData||!tg.openLink||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;
+  try{tg.openLink(url);event.preventDefault();}catch{}
+}
 const remember={get:k=>{try{return sessionStorage.getItem(k);}catch{return null;}},set:(k,v)=>{try{sessionStorage.setItem(k,v);}catch{}},remove:k=>{try{sessionStorage.removeItem(k);}catch{}}};
 function readPending(){try{return JSON.parse(remember.get('cfk_pending')||'null');}catch{return null;}}
 function Icon({name='arrow'}){return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={name==='plus'?'M12 5v14M5 12h14':name==='close'?'m6 6 12 12M6 18 18 6':name==='check'?'m5 12 4 4L19 6':'M7 17 17 7M7 7h10v10'}/></svg>;}
@@ -35,12 +47,12 @@ export default function App(){
   const [range,setRange]=useState('1d'),[amount,setAmount]=useState('20'),[position,setPosition]=useState(null),[notice,setNotice]=useState('');
   const [modal,setModal]=useState(()=>readPending()?'transaction':null),[flow,setFlow]=useState({step:'idle'}),[intent,setIntent]=useState('buy');
   const [consent,setConsentState]=useState(getConsent()),[chartMessage,setChartMessage]=useState('Loading price history…');
-  const [walletActive,setWalletActive]=useState(()=>!!readPending()||remember.get('cfk_account')==='yes');
+  const [walletActive,setWalletActive]=useState(()=>!!readPending()||remember.get('cfk_funded_account')==='yes');
   const [activation,setActivation]=useState(()=>readPending()?1:0),[account,setAccount]=useState(null),[busy,setBusy]=useState(false);
   const bridgeRef=useRef(null),lock=useRef(false),queuedAction=useRef(null),pendingRef=useRef(readPending());
   const savePending=data=>{pendingRef.current=data;if(data)remember.set('cfk_pending',JSON.stringify(data));else remember.remove('cfk_pending');};
   const setLock=value=>{lock.current=value;setBusy(value);};
-  const refreshPosition=useCallback(async()=>{const b=bridgeRef.current;if(!b)return;try{setPosition(await api('/position?wallet='+b.address));}catch{}},[]);
+  const refreshPosition=useCallback(async()=>{const b=bridgeRef.current;if(!b)return;if(!b.address){setPosition({valueUsd:0,tokens:0,availableUsd:0});return;}try{const next=await api('/position?wallet='+b.address);setPosition(next);if(next.tokens>0||next.availableUsd>0)remember.set('cfk_funded_account','yes');}catch{}},[]);
   useEffect(()=>{
     const tg=window.Telegram?.WebApp;tg?.ready();tg?.expand();try{tg?.setHeaderColor('#ffffff');tg?.setBackgroundColor('#ffffff');}catch{}
     captureAttribution();api('/config').then(c=>{setConfig(c);getSession().then(()=>track('ViewContent',{trigger:'coin_page'},c)).catch(()=>{});}).catch(()=>setNotice('Please refresh to reconnect.'));
@@ -55,7 +67,7 @@ export default function App(){
   },[range]);
   useEffect(()=>{refreshPosition();const t=setInterval(()=>{if(!document.hidden)refreshPosition();},20000);return()=>clearInterval(t);},[account,refreshPosition]);
   useEffect(()=>{if(!notice)return;const t=setTimeout(()=>setNotice(''),6000);return()=>clearTimeout(t);},[notice]);
-  const onReady=useCallback(bridge=>{bridgeRef.current=bridge;remember.set('cfk_account','yes');setAccount(bridge.address);},[]);
+  const onReady=useCallback(bridge=>{const previous=bridgeRef.current;bridgeRef.current=bridge;setAccount(bridge.userId);if(previous&&previous.address!==bridge.address)refreshPosition();},[refreshPosition]);
   const onError=useCallback(message=>{setFlow({step:'auth-error',message});setModal('transaction');},[]);
   const onCancelSignIn=useCallback(()=>{queuedAction.current=null;setFlow({step:'idle'});setModal(null);},[]);
   function signIn(method=null){setLoginMethod(method);setModal(null);setFlow({step:'sign-in'});setWalletActive(true);setActivation(n=>n+1);}
@@ -70,6 +82,7 @@ export default function App(){
     const selected=override??Number(amount);
     if(!Number.isFinite(selected)||selected<=0){setFlow({step:'blocked',message:'Choose an amount greater than $0.'});return;}
     if(!config?.privyAppId){setFlow({step:'blocked',message:'Buying and selling are being connected. No payment has been taken.'});return;}
+    if(side==='buy'&&config.checkout?.buyEnabled!==true){setFlow({step:'blocked',message:'Buying is being connected. No payment has been taken.'});return;}
     queuedAction.current={side,amountUsd:selected};
     if(!bridgeRef.current){signIn();return;}
     setFlow({step:'idle'});
@@ -78,13 +91,18 @@ export default function App(){
   async function prepare(action){
     if(lock.current||!bridgeRef.current)return;setLock(true);setModal('transaction');setFlow({step:'loading'});
     try{
-      const b=bridgeRef.current,token=await b.getAccessToken(),session=await getSession();
+      const b=bridgeRef.current;
+      const [token,session]=await Promise.all([b.getAccessToken(),getSession()]);
+      if(!token)throw new Error('Please sign in again to continue.');
+      // Validate server auth and payment readiness before creating a funding address.
+      if(action.side==='buy')await api('/ramp/preflight',{method:'POST',token,body:{grossCents:Math.round(action.amountUsd*100)}});
+      const address=await walletForAction(b,action.side,config.checkout);
       if(action.side==='buy'||action.side==='withdraw'){
         const direction=action.side==='buy'?'onramp':'offramp';
-        const data=await api('/ramp/session',{method:'POST',token,body:{wallet:b.address,direction,grossCents:Math.round(action.amountUsd*100),sessionId:session.id,checkoutId:getCheckoutId(),intent:action.side}});
+        const data=await api('/ramp/session',{method:'POST',token,body:{wallet:address,direction,grossCents:Math.round(action.amountUsd*100),sessionId:session.id,checkoutId:getCheckoutId(),intent:action.side}});
         setFlow({step:'ramp-review',direction,...data});
       }else{
-        const data=await api('/trade/prepare',{method:'POST',token,body:{wallet:b.address,side:'sell',amountUsd:action.amountUsd,sessionId:session.id}});
+        const data=await api('/trade/prepare',{method:'POST',token,body:{wallet:address,side:'sell',amountUsd:action.amountUsd,sessionId:session.id}});
         await execute(data,'sell');
       }
     }catch(e){setFlow({step:'blocked',message:e.message});}finally{setLock(false);}
@@ -138,7 +156,10 @@ export default function App(){
   const change=market?.change24h,changeText=change!=null?(change>=0?'+':'')+change.toFixed(2)+'%':'—';
   return <>
     <main className="app">
-      <header className="coin-identity"><img src="/assets/cfk-coin.png" width="48" height="48" alt="Cashflow"/><div><h1>CASHFLOWKEY</h1><span>$CFK</span></div><button className="account-button" onClick={openAccount}>{account?'My position':'Sign in'}</button></header>
+      <header className="coin-identity">
+        <div className="coin-identity-main"><img src="/assets/cfk-coin.png" width="48" height="48" alt="Cashflow"/><div><h1>CASHFLOWKEY</h1><span>$CFK</span></div><button className="account-button" onClick={openAccount}>{account?'My position':'Sign in'}</button></div>
+        <nav className="creator-socials" aria-label="Creator social profiles"><span>Creator</span>{CREATOR_SOCIALS.map(social=><a key={social.name} href={social.url} target="_blank" rel="noopener noreferrer" aria-label={'Cashflowkey on '+social.name+' (opens in a new tab)'} title={social.name} onClick={event=>openSocial(event,social.url)}><img src={'/assets/social-'+social.icon+'.svg'} width="19" height="19" alt=""/></a>)}</nav>
+      </header>
       <section className="coin-card" aria-label="Cashflowkey market">
         <div className="price-heading"><h2>$CFK Price</h2><span className="price-currency">USD</span></div>
         <div className="price-row"><strong>{formatMoney(inspected?.[4]??market?.priceUsd,true)}</strong><div className="price-detail">{inspected?<span className="inspected-time">{new Date(inspected[0]*1000).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}<small>Historical price</small></span>:<span className={change==null?'change muted':change<0?'change loss':'change gain'}>{changeText}<small>past 24 hours</small></span>}</div></div>

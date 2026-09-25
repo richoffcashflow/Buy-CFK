@@ -71,7 +71,17 @@ Do not turn on real-money flags until those dependencies are verified. The app c
 
 ## Simple purchase flow
 
-The default is Buy $20. A customer signs in through Telegram or email, reviews the payment fees, and completes embedded checkout. Verified funding triggers the CFK purchase automatically. One payment has one order; a refresh resumes the same signed transaction. Sell uses a dollar amount and then offers Withdraw. Cash payouts still require the approved provider. The main page never displays a SOL balance or wallet controls.
+The default is Buy $20. The creator's YouTube, Instagram, X, and TikTok profiles appear below the coin identity with locally hosted Simple Icons brand SVGs. A customer signs in through Telegram or email, reviews the payment fees, and completes embedded checkout. Verified funding triggers the CFK purchase automatically. One payment has one order; a refresh resumes the same signed transaction. Sell uses a dollar amount and then offers Withdraw. Cash payouts still require the approved provider. The main page never displays a SOL balance or wallet controls.
+
+### Wallet creation and cost controls
+
+Automatic wallet creation is off for both Ethereum and Solana. Browsing, choosing an amount, signing in, viewing a position, and attempting to sell from an empty account do not create wallets. The app restores Privy automatically only for a pending payment/transaction or an account previously observed holding funds in the current browser session. Other visitors activate Privy only after an explicit sign-in or an available Buy action.
+
+Before creating a Solana funding address, the app checks payment availability and calls the authenticated `/api/ramp/preflight` endpoint to validate the session, amount, and server payment configuration. Only then does it explicitly create the wallet if needed. Concurrent creation attempts share one request, existing wallets are reused, and cancelled attempts can be retried.
+
+The current on-ramp adapter requires a destination wallet address when it creates checkout, so this integration must create the address **before** payment completes. Creating a wallet only after successful payment requires an approved provider that supports a delayed destination or post-payment fulfillment; that capability is not currently connected.
+
+There is no automatic user or wallet deletion on abandonment. Privy's [standard pricing](https://www.privy.io/pricing) counts authenticated users with an active session in the last 30 days, including users without funded wallets. Deleting an account must not be assumed to erase billing activity. Privy's [user deletion API](https://docs.privy.io/user-management/users/managing-users/deleting-users) archives and disassociates wallets instead of deleting them, and restoring access is not guaranteed. Pending payments and existing funded accounts retain their identity and address.
 
 `TELEGRAM_BOT_TOKEN` is server-only. `TELEGRAM_BOT_USERNAME` has no `@`. Both also need to be configured with the matching Telegram bot in Privy.
 
