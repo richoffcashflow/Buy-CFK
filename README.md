@@ -75,7 +75,7 @@ The default is Buy $20. The creator's YouTube, Instagram, X, and TikTok profiles
 
 ### Wallet creation and cost controls
 
-Automatic wallet creation is off for both Ethereum and Solana. Browsing, choosing an amount, signing in, viewing a position, and attempting to sell from an empty account do not create wallets. The app restores Privy automatically only for a pending payment/transaction or an account previously observed holding funds in the current browser session. Other visitors activate Privy only after an explicit sign-in or an available Buy action.
+Automatic wallet creation is off for both Ethereum and Solana. Browsing and choosing an amount never mount Privy, including for returning funded users. Privy activates only after an explicit sign-in, account action, available Buy action, or payment recovery tap. Pending payments remain saved and offer a recovery button instead of automatically signing in. Cancelling sign-in unmounts the provider. Signing in, viewing a position, and attempting to sell from an empty account do not create wallets.
 
 Before creating a Solana funding address, the app checks payment availability and calls the authenticated `/api/ramp/preflight` endpoint to validate the session, amount, and server payment configuration. Only then does it explicitly create the wallet if needed. Concurrent creation attempts share one request, existing wallets are reused, and cancelled attempts can be retried.
 
@@ -84,6 +84,10 @@ The current on-ramp adapter requires a destination wallet address when it create
 There is no automatic user or wallet deletion on abandonment. Privy's [standard pricing](https://www.privy.io/pricing) counts authenticated users with an active session in the last 30 days, including users without funded wallets. Deleting an account must not be assumed to erase billing activity. Privy's [user deletion API](https://docs.privy.io/user-management/users/managing-users/deleting-users) archives and disassociates wallets instead of deleting them, and restoring access is not guaranteed. Pending payments and existing funded accounts retain their identity and address.
 
 `TELEGRAM_BOT_TOKEN` is server-only. `TELEGRAM_BOT_USERNAME` has no `@`. Both also need to be configured with the matching Telegram bot in Privy.
+
+### Marketing domain and Telegram
+
+External visits to the root of `buycfk.com` or `www.buycfk.com` automatically open `https://t.me/Cashflowkeybot?startapp=buycfk&mode=fullscreen` after allowing Telegram initialization to finish. A visible Open in Telegram button and Continue in browser fallback remain available. Valid incoming `startapp` or `ref` values are retained in the Telegram link. The browser fallback retains the original query string. No Privy provider is loaded by the launcher. Existing Telegram context, account callback parameters, and non-root paths skip the handoff. Keep BotFather's Mini App URL and menu URL pointing to `https://buy-cfk.vercel.app/`, the existing approved authentication/API origin, to avoid a launch loop or changing account origins.
 
 ## Route verification status
 

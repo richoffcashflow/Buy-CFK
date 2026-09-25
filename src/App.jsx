@@ -45,14 +45,16 @@ export default function App(){
   const [config,setConfig]=useState(null),[market,setMarket]=useState(null),[points,setPoints]=useState([]),[activity,setActivity]=useState(null);
   const [inspected,setInspected]=useState(null),[chartLoading,setChartLoading]=useState(true),[historyStart,setHistoryStart]=useState(null),[customAmount,setCustomAmount]=useState('20'),[loginMethod,setLoginMethod]=useState(null);
   const [range,setRange]=useState('1d'),[amount,setAmount]=useState('20'),[position,setPosition]=useState(null),[notice,setNotice]=useState('');
-  const [modal,setModal]=useState(()=>readPending()?'transaction':null),[flow,setFlow]=useState({step:'idle'}),[intent,setIntent]=useState('buy');
+  const [modal,setModal]=useState(()=>readPending()?'transaction':null),[flow,setFlow]=useState(()=>readPending()?{step:'pending',message:'Continue to check your previous payment or coin purchase.'}:{step:'idle'}),[intent,setIntent]=useState('buy');
   const [consent,setConsentState]=useState(getConsent()),[chartMessage,setChartMessage]=useState('Loading price history…');
-  const [walletActive,setWalletActive]=useState(()=>!!readPending()||remember.get('cfk_funded_account')==='yes');
-  const [activation,setActivation]=useState(()=>readPending()?1:0),[account,setAccount]=useState(null),[busy,setBusy]=useState(false);
+  // Even returning funded users browse without restoring a Privy session.
+  // Only an explicit account/payment action mounts the authentication provider.
+  const [walletActive,setWalletActive]=useState(false);
+  const [activation,setActivation]=useState(0),[account,setAccount]=useState(null),[busy,setBusy]=useState(false);
   const bridgeRef=useRef(null),lock=useRef(false),queuedAction=useRef(null),pendingRef=useRef(readPending());
   const savePending=data=>{pendingRef.current=data;if(data)remember.set('cfk_pending',JSON.stringify(data));else remember.remove('cfk_pending');};
   const setLock=value=>{lock.current=value;setBusy(value);};
-  const refreshPosition=useCallback(async()=>{const b=bridgeRef.current;if(!b)return;if(!b.address){setPosition({valueUsd:0,tokens:0,availableUsd:0});return;}try{const next=await api('/position?wallet='+b.address);setPosition(next);if(next.tokens>0||next.availableUsd>0)remember.set('cfk_funded_account','yes');}catch{}},[]);
+  const refreshPosition=useCallback(async()=>{const b=bridgeRef.current;if(!b)return;if(!b.address){setPosition({valueUsd:0,tokens:0,availableUsd:0});return;}try{const next=await api('/position?wallet='+b.address);setPosition(next);}catch{}},[]);
   useEffect(()=>{
     const tg=window.Telegram?.WebApp;tg?.ready();tg?.expand();try{tg?.setHeaderColor('#ffffff');tg?.setBackgroundColor('#ffffff');}catch{}
     captureAttribution();api('/config').then(c=>{setConfig(c);getSession().then(()=>track('ViewContent',{trigger:'coin_page'},c)).catch(()=>{});}).catch(()=>setNotice('Please refresh to reconnect.'));
@@ -69,7 +71,7 @@ export default function App(){
   useEffect(()=>{if(!notice)return;const t=setTimeout(()=>setNotice(''),6000);return()=>clearTimeout(t);},[notice]);
   const onReady=useCallback(bridge=>{const previous=bridgeRef.current;bridgeRef.current=bridge;setAccount(bridge.userId);if(previous&&previous.address!==bridge.address)refreshPosition();},[refreshPosition]);
   const onError=useCallback(message=>{setFlow({step:'auth-error',message});setModal('transaction');},[]);
-  const onCancelSignIn=useCallback(()=>{queuedAction.current=null;setFlow({step:'idle'});setModal(null);},[]);
+  const onCancelSignIn=useCallback(()=>{queuedAction.current=null;setFlow({step:'idle'});setModal(null);setWalletActive(false);},[]);
   function signIn(method=null){setLoginMethod(method);setModal(null);setFlow({step:'sign-in'});setWalletActive(true);setActivation(n=>n+1);}
   function openAccount(){if(account){document.getElementById('position').scrollIntoView({behavior:'smooth',block:'center'});return;}queuedAction.current=null;signIn();}
   function begin(side,override){
@@ -129,7 +131,7 @@ export default function App(){
     await execute(quote,'buy');
   }
   async function resume(){
-    const pending=pendingRef.current;if(!pending||lock.current||!bridgeRef.current)return;setLock(true);
+    const pending=pendingRef.current;if(!pending||lock.current)return;if(!bridgeRef.current){signIn();return;}setLock(true);
     try{
       if(pending.type==='trade'){await confirmPending(pending);return;}
       const result=await api('/ramp/status?id='+pending.rampId,{token:await bridgeRef.current.getAccessToken()});
@@ -167,7 +169,7 @@ export default function App(){
         <div className="inline-trade" role="group" aria-label="Trade below the chart"><button className="primary" disabled={busy} onClick={()=>begin('buy')}>Buy now</button><button className="primary sell" disabled={busy} onClick={()=>begin('sell')}>Sell my CFK</button></div>
       </section>
       <section className="market-card" aria-label="24 hour market"><h2>24h market</h2><dl className="market-stats"><div><dt>Market cap</dt><dd>{formatMoney(market?.marketCap,true,true)}</dd></div><div><dt>24h volume</dt><dd>{formatMoney(market?.volume24h,true,true)}</dd></div><div><dt>Holders</dt><dd>{formatNumber(market?.holders)}</dd></div><div><dt>24h change</dt><dd className={change==null?'muted':change<0?'loss':'gain'}>{changeText}</dd></div></dl></section>
-      <section id="position" className="position-card" aria-label="Your position"><div className="position-heading"><h2>Your Position</h2><span className="token-badge">$CFK</span></div><div className="position-value"><div><span>Current value</span><strong>{account?formatMoney(position?.valueUsd):'$0.00'}</strong></div>{position?.pnlPercent!=null&&<div className="position-return"><strong className={position.pnlPercent<0?'loss':'gain'}>{position.pnlPercent>=0?'+':''}{position.pnlPercent.toFixed(2)}%</strong><small>{formatMoney(position.pnlUsd)} return</small></div>}</div><div className="position-tokens"><div><span>Tokens owned</span><strong>{formatNumber(position?.tokens??0)}</strong></div><span className="token-badge">$CFK</span></div>{!account&&<button className="position-sign-in" onClick={openAccount}>Sign in to see your position <span aria-hidden="true">→</span></button>}</section>
+      <section id="position" className="position-card" aria-label="Your position"><div className="position-heading"><h2>Your Position</h2><span className="token-badge">$CFK</span></div><div className="position-value"><div><span>Current value</span><strong>{account?formatMoney(position?.valueUsd):'—'}</strong></div>{position?.pnlPercent!=null&&<div className="position-return"><strong className={position.pnlPercent<0?'loss':'gain'}>{position.pnlPercent>=0?'+':''}{position.pnlPercent.toFixed(2)}%</strong><small>{formatMoney(position.pnlUsd)} return</small></div>}</div><div className="position-tokens"><div><span>Tokens owned</span><strong>{formatNumber(account?position?.tokens:null)}</strong></div><span className="token-badge">$CFK</span></div>{!account&&<button className="position-sign-in" onClick={openAccount}>Sign in to see your position <span aria-hidden="true">→</span></button>}</section>
       {position?.availableUsd>.01&&<div className="cash-ready"><span><strong>{formatMoney(position.availableUsd)}</strong> ready to withdraw</span><button onClick={()=>begin('withdraw',Math.floor(position.availableUsd*100)/100)}>Withdraw</button></div>}
       <section className="activity" aria-label="Coin activity"><div className="section-heading"><h2>Coin Activity</h2><span className="activity-badge">Latest trades</span></div><div className="activity-status"><span className={activity?.unavailable?'status-dot offline':'status-dot'}/><span>{activity?.unavailable?'Reconnecting to activity':'Recent buys & sells'}</span><small>{activity?.updatedAt?'Updated '+new Date(activity.updatedAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):'Connecting…'}</small></div><ul>{activity?.items?.length?activity.items.slice(0,10).map(item=><li key={item.id}><span className={'activity-icon '+item.side}><Icon name={item.side==='buy'?'plus':'arrow'}/></span><div><strong>{item.side==='buy'?'Bought':'Sold'} CFK</strong><small>{new Date(item.timestamp).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</small></div><div className="activity-value"><strong>{item.usd!=null?formatMoney(item.usd):formatNumber(item.tokens)+' CFK'}</strong></div><a href={'https://solscan.io/tx/'+item.signature} target="_blank" rel="noreferrer" aria-label="View transaction"><Icon/></a></li>):<li className="empty-activity"><p>{activity?.unavailable?'Activity is unavailable right now.':'Confirmed buys and sells will appear here.'}</p></li>}</ul><p className="source-note">Confirmed coin activity. Prices shown in USD when available.</p></section>
       <section className="creator-card" aria-labelledby="creator-heading"><h2 id="creator-heading">Creator</h2><nav className="creator-socials" aria-label="Creator social profiles">{CREATOR_SOCIALS.map(social=><a key={social.name} href={social.url} target="_blank" rel="noopener noreferrer" aria-label={'Cashflowkey on '+social.name+' (opens in a new tab)'} title={social.name} onClick={event=>openSocial(event,social.url)}><img src={'/assets/social-'+social.icon+'.svg'} width="19" height="19" alt=""/></a>)}</nav></section>

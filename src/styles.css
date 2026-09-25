@@ -13,6 +13,15 @@ button { color: inherit; }
 button:disabled { opacity: .45; cursor: default; }
 button:focus-visible, a:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 3px solid #79b9ff; outline-offset: 3px; }
 svg { width: 20px; height: 20px; flex-shrink: 0; }
+.app-loading { padding: 40px 20px; text-align: center; color: var(--muted); }
+.telegram-launcher { min-height: 100svh; display: grid; place-items: center; padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom)); }
+.telegram-launcher section { width: min(100%, 380px); text-align: center; }
+.telegram-launcher img { border-radius: 50%; margin-bottom: 20px; }
+.telegram-launcher h1 { font-size: 36px; letter-spacing: -1px; margin: 0; }
+.telegram-launcher p { color: var(--muted); line-height: 1.5; margin: 14px 0 26px; }
+.telegram-launcher .primary { display: flex; align-items: center; justify-content: center; min-height: 58px; text-decoration: none; }
+.browser-fallback { display: block; color: var(--blue-dark); padding: 20px 0; font-weight: 650; }
+.telegram-launcher small { display: block; color: var(--muted); margin-top: 18px; }
 /* Telegram's controls sit below the device status bar in fullscreen mode. */
 .app { --page-top-gap: 18px; width: min(100%, 620px); margin: auto; padding: calc(var(--page-top-gap) + max(env(safe-area-inset-top, 0px), var(--tg-safe-area-inset-top, 0px)) + var(--tg-content-safe-area-inset-top, 0px)) 16px 0; }
 .coin-identity, .coin-card, .market-card, .position-card, .activity, .creator-card { border: 1px solid var(--line); border-radius: 24px; background: #fff; }
