@@ -26,3 +26,13 @@ export function browserAppUrl(search = '') {
   url.search = search;
   return url.href;
 }
+
+// Explicit test navigation only; authentication is still verified by Privy.
+export function sandboxLaunchUrl({hostname, search='', hash='', startParam=''}) {
+  if (!['buy-cfk.vercel.app','buycfk.com','www.buycfk.com'].includes(hostname)) return null;
+  const query = new URLSearchParams(search), fragment = new URLSearchParams(hash.replace(/^#/, ''));
+  if (![startParam,query.get('tgWebAppStartParam'),fragment.get('tgWebAppStartParam'),query.get('startapp')].includes('cfk_stripe_test')) return null;
+  const url = new URL('https://buy-cfk-git-stripe-sandbox-cashflowkey.vercel.app/');
+  url.search = search; url.hash = hash;
+  return url.href;
+}

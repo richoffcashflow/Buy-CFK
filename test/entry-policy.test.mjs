@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {shouldOpenTelegram, telegramLaunchUrl, browserAppUrl} from '../src/entry-policy.js';
+import {sandboxLaunchUrl, shouldOpenTelegram, telegramLaunchUrl, browserAppUrl} from '../src/entry-policy.js';
 
 const visit = {hostname:'buycfk.com',pathname:'/',search:'',hash:'',initData:''};
 test('only external visits to the marketing domain launch Telegram', () => {
@@ -22,4 +22,12 @@ test('Telegram handoff preserves valid start tokens and cannot redirect to an ar
     assert.equal(telegramLaunchUrl(search), 'https://t.me/Cashflowkeybot?startapp=buycfk&mode=fullscreen');
   }
   assert.equal(browserAppUrl('?utm_source=youtube&ref=creator_1'), 'https://buy-cfk.vercel.app/?utm_source=youtube&ref=creator_1');
+});
+
+test('explicit test launch preserves Telegram context and has a fixed destination', () => {
+  const hash='#tgWebAppStartParam=cfk_stripe_test&tgWebAppData=signed-context';
+  assert.equal(sandboxLaunchUrl({hostname:'buy-cfk.vercel.app',hash}), 'https://buy-cfk-git-stripe-sandbox-cashflowkey.vercel.app/'+hash);
+  assert.equal(sandboxLaunchUrl({hostname:'buy-cfk.vercel.app',startParam:'buycfk'}),null);
+  assert.equal(sandboxLaunchUrl({hostname:'buy-cfk-git-stripe-sandbox-cashflowkey.vercel.app',hash}),null);
+  assert.equal(sandboxLaunchUrl({hostname:'evil.test',hash}),null);
 });

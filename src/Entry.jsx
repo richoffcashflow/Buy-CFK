@@ -1,14 +1,16 @@
 import React, {lazy, Suspense, useEffect, useState} from 'react';
-import {browserAppUrl, shouldOpenTelegram, telegramLaunchUrl} from './entry-policy.js';
+import {sandboxLaunchUrl, browserAppUrl, shouldOpenTelegram, telegramLaunchUrl} from './entry-policy.js';
 
 const App = lazy(() => import('./App.jsx'));
 const needsHandoff = () => shouldOpenTelegram({hostname:location.hostname, pathname:location.pathname, search:location.search, hash:location.hash, initData:window.Telegram?.WebApp?.initData});
 
 export default function Entry() {
+  const testUrl = sandboxLaunchUrl({hostname:location.hostname,search:location.search,hash:location.hash,startParam:window.Telegram?.WebApp?.initDataUnsafe?.start_param});
+  useEffect(() => { if (testUrl) location.replace(testUrl); }, [testUrl]);
   const [handoff, setHandoff] = useState(needsHandoff);
   const telegramUrl = telegramLaunchUrl(location.search);
   useEffect(() => {
-    if (!handoff) return;
+    if (testUrl || !handoff) return;
     let attempts = 0, redirect;
     // Allow late Telegram initialization before deciding this is an external visit.
     const timer = setInterval(() => {
@@ -19,7 +21,8 @@ export default function Entry() {
       }
     }, 100);
     return () => { clearInterval(timer); clearTimeout(redirect); };
-  }, [handoff, telegramUrl]);
+  }, [handoff, telegramUrl, testUrl]);
+  if (testUrl) return <p className="app-loading" role="status">Opening CFK test checkout…</p>;
   if (!handoff) return <Suspense fallback={<p className="app-loading" role="status">Opening CFK…</p>}><App /></Suspense>;
   return <main className="telegram-launcher"><section>
     <img src="/assets/cfk-coin.png" width="80" height="80" alt="Cashflowkey"/>
