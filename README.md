@@ -71,7 +71,7 @@ Do not turn on real-money flags until those dependencies are verified. The app c
 
 ## Simple purchase flow
 
-The default is Buy $20. The creator's YouTube, Instagram, X, and TikTok profiles appear in a Creator card below Coin Activity with locally hosted Simple Icons brand SVGs. A customer signs in through Telegram or email, reviews the payment fees, and completes embedded checkout. Verified funding triggers the CFK purchase automatically. One payment has one order; a refresh resumes the same signed transaction. Sell uses a dollar amount and then offers Withdraw. Cash payouts still require the approved provider. The main page never displays a SOL balance or wallet controls.
+The default is Buy $20. A compact blue-and-black Cashflowkey header introduces the coin without replacing the fixed amount selector. Below activity, a short About section explains CFK and the Creator card uses the user's original IMG_1520.JPG photo. The creator's YouTube, Instagram, X, and TikTok profiles appear in a Creator card below Coin Activity with locally hosted Simple Icons brand SVGs. A customer signs in through Telegram or email, reviews the payment fees, and completes embedded checkout. Verified funding triggers the CFK purchase automatically. One payment has one order; a refresh resumes the same signed transaction. Sell uses a dollar amount and then offers Withdraw. Cash payouts still require the approved provider. The main page never displays a SOL balance or wallet controls.
 
 ### Wallet creation and cost controls
 
