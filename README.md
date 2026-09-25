@@ -61,6 +61,16 @@ A PostgreSQL outbox stores server events and retries transient delivery failures
 
 ## Remaining launch dependencies
 
+### Stripe connection check
+
+Set `STRIPE_SECRET_KEY` and `STRIPE_PUBLISHABLE_KEY` in Vercel using API keys from the same Stripe account and mode (`sk_live_`/`pk_live_` or test equivalents). The mobile embedded-component App ID/client credentials are different. Do not expose the secret to Vite or commit it.
+
+`npm run check:stripe` (also part of each build) makes a read-only SOL/USD quote request to Stripe. The `CFK_STRIPE_ONRAMP_CHECK` build log reports credential format, key modes, publishable-key presence, and quote access. It never logs secret values, upstream error text, customer data, or checkout client secrets. The check creates no payment sessions and moves no money. Failure is informational so the public coin page stays online.
+
+This is a connection diagnostic, **not an activated Stripe checkout**. Stripe's source amount can be changed in its widget, and its quote API distinguishes the source amount from the total including provider fees. Before wiring automatic CFK buys, implement verified session reconciliation for the actual delivered asset and amount, signed onramp notifications, and the agreed platform-fee collection method. The current generic adapter requires evidence of a settled 15% fee; a Stripe quote alone cannot provide it. Off-ramp support and CFK route simulation/signing remain separate launch dependencies. Neither `RAMP_ENABLED` nor `TRADING_ENABLED` is changed by this check.
+
+References: [Stripe web onramp](https://docs.stripe.com/crypto/onramp/embedded), [quote API](https://docs.stripe.com/api/crypto/onramp_quotes/retrieve), [session parameters](https://docs.stripe.com/api/crypto/onramp_sessions/create).
+
 1. Vercel, a separate Supabase database, and the scheduled worker are provisioned. Verify all remaining production secrets.
 2. Privy app/domain/Telegram setup and a verified CFK data and trading route.
 3. Approved on/off-ramp provider supporting embedded checkout, Solana funding/payout, and the disclosed 15% fee in both directions. See [the provider adapter contract](docs/provider-adapter.md).

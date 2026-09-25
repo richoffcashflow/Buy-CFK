@@ -8,7 +8,8 @@
   },
   "scripts": {
     "dev": "node scripts/dev.mjs",
-    "build": "vite build",
+    "build": "node scripts/check-stripe.mjs && vite build",
+    "check:stripe": "node scripts/check-stripe.mjs",
     "test": "node --test test/*.test.mjs",
     "db:migrate": "node scripts/migrate.mjs",
     "worker": "node scripts/worker.mjs"
