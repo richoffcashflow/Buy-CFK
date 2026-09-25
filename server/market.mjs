@@ -1,6 +1,7 @@
 import {CFK_MINT,SOL_MINT,mint,NETWORK_RESERVE,validAddress,fetchJson,normalizeActivity,appError} from './core.mjs';
 import {database} from './db.mjs';
 import {fetchCurve,curveAddress,pumpEvents,TOKEN_PROGRAM,TOKEN_2022} from './pump.mjs';
+import {observedHistory} from './chart-history.mjs';
 const cache=new Map();
 async function cached(key,ttl,fn){const hit=cache.get(key);if(hit&&Date.now()-hit.at<ttl)return hit.data;const data=await fn();cache.set(key,{at:Date.now(),data});return data;}
 export async function rpc(method,params=[]){return fetchJson(process.env.SOLANA_RPC_URL||'https://api.mainnet-beta.solana.com',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})}).then(d=>{if(d.error)throw appError('The Solana network is busy. Try again shortly.',502);return d.result;});}
@@ -35,11 +36,10 @@ export async function getMarket(){
   return {mint:mint(),...price,change24h:change,holders,volume24h:pair?.volume?.h24??null,liquidity:pair?.liquidity?.usd??null,updatedAt:new Date().toISOString(),holderSource};
 }
 export async function getChart(range){
-  const periods={'1h':['minute',1,60],'4h':['minute',5,48],'1d':['hour',1,24],'1w':['hour',4,42]};
+  const periods={'1h':['minute',1,60],'4h':['minute',5,48],'1d':['hour',1,24],'1w':['hour',4,42],'1m':['day',1,30],all:['day',1,1000]};
   if(!periods[range])throw appError('Invalid chart range.');
   return cached('chart:'+range+mint(),30000,async()=>{
-    const hours={'1h':1,'4h':4,'1d':24,'1w':168}[range];
-    try{const rows=(await database().query("SELECT extract(epoch FROM observed_at) AS time,price_usd FROM cfk_market_samples WHERE mint=$1 AND observed_at>now()-($2::double precision * interval '1 hour') ORDER BY observed_at",[mint(),hours])).rows;if(rows.length)return {points:rows.map(r=>[Number(r.time),r.price_usd,r.price_usd,r.price_usd,r.price_usd,0]),source:'Observed on-chain prices',buildingHistory:true};}catch{}
+    try{const history=await observedHistory(database(),mint(),range);if(history)return history;}catch{}
     const pair=await getPair();if(pair){try{const [timeframe,aggregate,limit]=periods[range];const data=await fetchJson(`https://api.geckoterminal.com/api/v2/networks/solana/pools/${pair.pairAddress}/ohlcv/${timeframe}?aggregate=${aggregate}&limit=${limit}&currency=usd&token=${mint()}`);const rows=data?.data?.attributes?.ohlcv_list||[];if(rows.length)return {points:rows.filter(p=>p.length>=5&&p.slice(0,5).every(Number.isFinite)).sort((a,b)=>a[0]-b[0]),source:'GeckoTerminal'};}catch{}}
     return {points:[],buildingHistory:true};
   });

@@ -1,6 +1,6 @@
 # Buy $CFK
 
-One simple Cashflowkey coin page for **Free Crypto App LLC**. Blue, black, and white Cashflow branding; background Privy accounts; fixed Buy/Sell buttons; dollar amount presets; your position below the graph; price chart; 24-hour change; market cap; holders; recent coin activity; and risk, fee, terms, and privacy disclosures.
+One simple Cashflowkey coin page for **Free Crypto App LLC**. Blue, black, and white Cashflow branding; background Privy accounts; a fixed amount selector with $20/$50/$100/custom choices and Buy/Sell buttons; matching actions under the graph; your position below the graph; price chart; 24-hour change; market cap; holders; recent coin activity; and risk, fee, terms, and privacy disclosures.
 
 ## Current status
 
@@ -10,7 +10,7 @@ CFK mint, confirmed by the owner’s Pump.fun link:
 
 `3Rcko4DWwbLQP6vZ2Juxy3gDbv3omNkeg5np17fbpump`
 
-This coin is on its Pump.fun bonding curve. Prices and activity fall back to verified on-chain curve reserves and trade events when no indexed pool exists. The app collects actual USD price samples for charts; 24-hour change requires an observed comparison point. Holder count uses Birdeye when configured or verified funded token owners from the chain, including protocol accounts. The exact coin image was downloaded from its immutable Token-2022 metadata URI.
+This coin is on its Pump.fun bonding curve. Prices and activity fall back to verified on-chain curve reserves and trade events when no indexed pool exists. The app keeps actual USD price samples for 1H/1D/1W/1M/All charts. Touch inspection uses actual timestamps, updates the headline price, and retains the selected price after a finger is lifted. Longer views sample actual observations and never invent history; 24-hour change requires an observed comparison point. Holder count uses Birdeye when configured or verified funded token owners from the chain, including protocol accounts. The exact coin image was downloaded from its immutable Token-2022 metadata URI.
 
 ## Run
 
@@ -82,3 +82,5 @@ On September 24, 2026 the public PumpPortal Local endpoint returned an unsigned 
 The unlinked, no-index `/layout-preview.html` page renders the real app at two mobile sizes for layout verification.
 
 Sources: [PumpPortal Local API](https://pumpportal.fun/local-trading-api/trading-api/), [PumpPortal fees](https://pumpportal.fun/fees/), [Pump.fun protocol IDLs](https://github.com/pump-fun/pump-public-docs), [Solana account queries](https://solana.com/docs/rpc/http/getprogramaccounts).
+
+Sign-in is explicitly available in Telegram as well as the browser, with an email retry if Telegram authentication fails. The app releases its own dialog before opening Privy and keeps transaction dialogs below provider overlays. In Privy, enable **Telegram** itself as well as **seamless Mini App login**; the seamless checkbox alone does not enable Telegram authentication.

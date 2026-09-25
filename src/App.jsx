@@ -1,20 +1,37 @@
-import React,{lazy,Suspense,useCallback,useEffect,useRef,useState} from 'react';
+import React,{lazy,Suspense,useCallback,useEffect,useId,useRef,useState} from 'react';
+import {createPortal} from 'react-dom';
 import {api,formatMoney,formatNumber} from './utils.js';
 import {captureAttribution,getSession,getCheckoutId,track,setConsent,getConsent} from './tracking.js';
 import Legal from './Legal.jsx';
 import PriceChart from './PriceChart.jsx';
+import TradeDock from './TradeDock.jsx';
 const Wallet=lazy(()=>import('./Wallet.jsx'));
 const MINT='3Rcko4DWwbLQP6vZ2Juxy3gDbv3omNkeg5np17fbpump';
 const remember={get:k=>{try{return sessionStorage.getItem(k);}catch{return null;}},set:(k,v)=>{try{sessionStorage.setItem(k,v);}catch{}},remove:k=>{try{sessionStorage.removeItem(k);}catch{}}};
 function readPending(){try{return JSON.parse(remember.get('cfk_pending')||'null');}catch{return null;}}
 function Icon({name='arrow'}){return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={name==='plus'?'M12 5v14M5 12h14':name==='close'?'m6 6 12 12M6 18 18 6':name==='check'?'m5 12 4 4L19 6':'M7 17 17 7M7 7h10v10'}/></svg>;}
 function Modal({title,children,onClose}){
-  const ref=useRef(null);
-  useEffect(()=>{const d=ref.current;d.showModal();return()=>d.close();},[]);
-  return <dialog ref={ref} onCancel={e=>{e.preventDefault();onClose();}} onClick={e=>{if(e.target===ref.current)onClose();}}><div className="dialog-head"><h2>{title}</h2><button className="icon-button" aria-label="Close" onClick={onClose}><Icon name="close"/></button></div>{children}</dialog>;
+  const ref=useRef(null),titleId=useId();
+  useEffect(()=>{
+    const previous=document.activeElement,overflow=document.body.style.overflow;
+    document.body.style.overflow='hidden';
+    if(!ref.current.contains(document.activeElement))ref.current.focus();
+    return()=>{document.body.style.overflow=overflow;if(previous?.isConnected)previous.focus();};
+  },[]);
+  function keydown(event){
+    if(event.key==='Escape'){event.stopPropagation();onClose();return;}
+    if(event.key!=='Tab')return;
+    const items=[...ref.current.querySelectorAll('button:not([disabled]),a[href],input:not([disabled]),[tabindex="0"]')];
+    if(!items.length){event.preventDefault();return;}
+    const index=items.indexOf(document.activeElement);
+    if(event.shiftKey&&(index<=0)){event.preventDefault();items.at(-1).focus();}
+    else if(!event.shiftKey&&(index===items.length-1||index<0)){event.preventDefault();items[0].focus();}
+  }
+  return createPortal(<div className="dialog-backdrop" onClick={e=>{if(e.target===e.currentTarget)onClose();}}><section className="dialog" role="dialog" aria-modal="true" aria-labelledby={titleId} ref={ref} tabIndex={-1} onKeyDown={keydown}><div className="dialog-head"><h2 id={titleId}>{title}</h2><button className="icon-button" aria-label="Close" onClick={onClose}><Icon name="close"/></button></div>{children}</section></div>,document.body);
 }
 export default function App(){
   const [config,setConfig]=useState(null),[market,setMarket]=useState(null),[points,setPoints]=useState([]),[activity,setActivity]=useState(null);
+  const [inspected,setInspected]=useState(null),[chartLoading,setChartLoading]=useState(true),[historyStart,setHistoryStart]=useState(null),[customAmount,setCustomAmount]=useState('20'),[loginMethod,setLoginMethod]=useState(null);
   const [range,setRange]=useState('1d'),[amount,setAmount]=useState('20'),[position,setPosition]=useState(null),[notice,setNotice]=useState('');
   const [modal,setModal]=useState(()=>readPending()?'transaction':null),[flow,setFlow]=useState({step:'idle'}),[intent,setIntent]=useState('buy');
   const [consent,setConsentState]=useState(getConsent()),[chartMessage,setChartMessage]=useState('Loading price history…');
@@ -25,7 +42,7 @@ export default function App(){
   const setLock=value=>{lock.current=value;setBusy(value);};
   const refreshPosition=useCallback(async()=>{const b=bridgeRef.current;if(!b)return;try{setPosition(await api('/position?wallet='+b.address));}catch{}},[]);
   useEffect(()=>{
-    const tg=window.Telegram?.WebApp;tg?.ready();tg?.expand();try{tg?.setHeaderColor('#f5f7f9');tg?.setBackgroundColor('#f5f7f9');}catch{}
+    const tg=window.Telegram?.WebApp;tg?.ready();tg?.expand();try{tg?.setHeaderColor('#ffffff');tg?.setBackgroundColor('#ffffff');}catch{}
     captureAttribution();api('/config').then(c=>{setConfig(c);getSession().then(()=>track('ViewContent',{trigger:'coin_page'},c)).catch(()=>{});}).catch(()=>setNotice('Please refresh to reconnect.'));
   },[]);
   useEffect(()=>{
@@ -33,13 +50,16 @@ export default function App(){
     refresh();const timer=setInterval(()=>{if(!document.hidden)refresh();},30000);return()=>{alive=false;clearInterval(timer);};
   },[]);
   useEffect(()=>{
-    let alive=true;setPoints([]);setChartMessage('Loading price history…');const refresh=()=>api('/chart?range='+range).then(d=>{if(alive){setPoints(d.points||[]);setChartMessage(d.buildingHistory?'Building price history…':'Price history is unavailable right now.');}}).catch(()=>{if(alive)setChartMessage('Price history is unavailable right now.');});
-    refresh();const t=setInterval(refresh,60000);return()=>{alive=false;clearInterval(t);};
+    let alive=true;setPoints([]);setChartLoading(true);setHistoryStart(null);setInspected(null);setChartMessage('Loading price history…');const refresh=()=>api('/chart?range='+range).then(d=>{if(alive){setPoints(d.points||[]);setHistoryStart(d.buildingHistory||range==='all'?d.historyStart:null);setChartLoading(false);setChartMessage(d.buildingHistory?'Building price history':'Price history is unavailable right now.');}}).catch(()=>{if(alive){setChartLoading(false);setChartMessage('Price history is unavailable right now.');}});
+    refresh();const t=setInterval(()=>{if(!document.hidden)refresh();},60000);return()=>{alive=false;clearInterval(t);};
   },[range]);
   useEffect(()=>{refreshPosition();const t=setInterval(()=>{if(!document.hidden)refreshPosition();},20000);return()=>clearInterval(t);},[account,refreshPosition]);
   useEffect(()=>{if(!notice)return;const t=setTimeout(()=>setNotice(''),6000);return()=>clearTimeout(t);},[notice]);
   const onReady=useCallback(bridge=>{bridgeRef.current=bridge;remember.set('cfk_account','yes');setAccount(bridge.address);},[]);
-  const onError=useCallback(message=>{queuedAction.current=null;setFlow({step:'blocked',message});},[]);
+  const onError=useCallback(message=>{setFlow({step:'auth-error',message});setModal('transaction');},[]);
+  const onCancelSignIn=useCallback(()=>{queuedAction.current=null;setFlow({step:'idle'});setModal(null);},[]);
+  function signIn(method=null){setLoginMethod(method);setModal(null);setFlow({step:'sign-in'});setWalletActive(true);setActivation(n=>n+1);}
+  function openAccount(){if(account){document.getElementById('position').scrollIntoView({behavior:'smooth',block:'center'});return;}queuedAction.current=null;signIn();}
   function begin(side,override){
     if(lock.current)return;
     setIntent(side);
@@ -50,11 +70,13 @@ export default function App(){
     const selected=override??Number(amount);
     if(!Number.isFinite(selected)||selected<=0){setFlow({step:'blocked',message:'Choose an amount greater than $0.'});return;}
     if(!config?.privyAppId){setFlow({step:'blocked',message:'Buying and selling are being connected. No payment has been taken.'});return;}
-    queuedAction.current={side,amountUsd:selected};setFlow({step:'idle'});setWalletActive(true);setActivation(n=>n+1);
+    queuedAction.current={side,amountUsd:selected};
+    if(!bridgeRef.current){signIn();return;}
+    setFlow({step:'idle'});
     if(bridgeRef.current){const action=queuedAction.current;queuedAction.current=null;prepare(action);}
   }
   async function prepare(action){
-    if(lock.current||!bridgeRef.current)return;setLock(true);setFlow({step:'loading'});
+    if(lock.current||!bridgeRef.current)return;setLock(true);setModal('transaction');setFlow({step:'loading'});
     try{
       const b=bridgeRef.current,token=await b.getAccessToken(),session=await getSession();
       if(action.side==='buy'||action.side==='withdraw'){
@@ -107,6 +129,7 @@ export default function App(){
     if(!account||!config)return;
     if(queuedAction.current){const action=queuedAction.current;queuedAction.current=null;prepare(action);}
     else if(pendingRef.current)resume();
+    else {setFlow({step:'idle'});setModal(null);}
   },[account,config]);
   useEffect(()=>{if(!account||!['checkout','pending'].includes(flow.step))return;const t=setInterval(()=>resume(),5000);return()=>clearInterval(t);},[account,flow.step]);
   function openPayment(){const pending={type:'payment',direction:flow.direction,rampId:flow.rampId,checkoutUrl:flow.checkoutUrl,grossCents:flow.grossCents,netCents:flow.netCents};savePending(pending);setFlow({step:'checkout',...pending});}
@@ -115,22 +138,26 @@ export default function App(){
   const change=market?.change24h,changeText=change!=null?(change>=0?'+':'')+change.toFixed(2)+'%':'—';
   return <>
     <main className="app">
-      <header className="coin-identity"><img src="/assets/cfk-coin.png" width="48" height="48" alt="Cashflow"/><div><h1>CASHFLOWKEY</h1><span>$CFK</span></div><span className="coin-label">Buy $CFK</span></header>
+      <header className="coin-identity"><img src="/assets/cfk-coin.png" width="48" height="48" alt="Cashflow"/><div><h1>CASHFLOWKEY</h1><span>$CFK</span></div><button className="account-button" onClick={openAccount}>{account?'My position':'Sign in'}</button></header>
       <section className="coin-card" aria-label="Cashflowkey market">
-        <div className="price-heading"><h2>$CFK Price</h2><div className="ranges" role="group" aria-label="Chart period">{[['1h','1H'],['4h','4H'],['1d','1D'],['1w','1W']].map(([key,label])=><button key={key} aria-pressed={range===key} onClick={()=>setRange(key)}>{label}</button>)}</div></div>
-        <div className="price-row"><strong>{formatMoney(market?.priceUsd,true)}</strong><span className={change<0?'change loss':'change gain'}>{changeText}<small>(24H)</small></span></div>
-        <PriceChart points={points} message={chartMessage}/>
-        <dl className="market-stats"><div><dt>Market cap</dt><dd>{formatMoney(market?.marketCap,true,true)}</dd></div><div><dt>24h volume</dt><dd>{formatMoney(market?.volume24h,true,true)}</dd></div><div><dt>Holders</dt><dd>{formatNumber(market?.holders)}</dd></div><div><dt>24h change</dt><dd className={change<0?'loss':'gain'}>{changeText}</dd></div></dl>
+        <div className="price-heading"><h2>$CFK Price</h2><span className="price-currency">USD</span></div>
+        <div className="price-row"><strong>{formatMoney(inspected?.[4]??market?.priceUsd,true)}</strong><div className="price-detail">{inspected?<span className="inspected-time">{new Date(inspected[0]*1000).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}<small>Historical price</small></span>:<span className={change==null?'change muted':change<0?'change loss':'change gain'}>{changeText}<small>past 24 hours</small></span>}</div></div>
+        <PriceChart key={range} points={points} message={chartMessage} loading={chartLoading} historyStart={historyStart} onInspect={setInspected}/>
+        <div className="ranges" role="group" aria-label="Chart period">{[['1h','1H'],['1d','1D'],['1w','1W'],['1m','1M'],['all','ALL']].map(([key,label])=><button key={key} aria-pressed={range===key} onClick={()=>setRange(key)}>{label}</button>)}</div>
+        <div className="inline-trade" role="group" aria-label="Trade below the chart"><button className="primary" disabled={busy} onClick={()=>begin('buy')}>Buy now</button><button className="primary sell" disabled={busy} onClick={()=>begin('sell')}>Sell my CFK</button></div>
       </section>
-      <section className="position-card" aria-label="Your position"><div className="position-heading"><h2>Your Position</h2><span className="token-badge">$CFK</span></div><div className="position-value"><div><span>Current value</span><strong>{account?formatMoney(position?.valueUsd):'$0.00'}</strong></div>{position?.pnlPercent!=null&&<div className="position-return"><strong className={position.pnlPercent<0?'loss':'gain'}>{position.pnlPercent>=0?'+':''}{position.pnlPercent.toFixed(2)}%</strong><small>{formatMoney(position.pnlUsd)} return</small></div>}</div><div className="position-tokens"><span>Tokens owned</span><strong>{formatNumber(position?.tokens??0)} <small>CFK</small></strong></div></section>
+      <section className="market-card" aria-label="24 hour market"><h2>24h market</h2><dl className="market-stats"><div><dt>Market cap</dt><dd>{formatMoney(market?.marketCap,true,true)}</dd></div><div><dt>24h volume</dt><dd>{formatMoney(market?.volume24h,true,true)}</dd></div><div><dt>Holders</dt><dd>{formatNumber(market?.holders)}</dd></div><div><dt>24h change</dt><dd className={change==null?'muted':change<0?'loss':'gain'}>{changeText}</dd></div></dl></section>
+      <section id="position" className="position-card" aria-label="Your position"><div className="position-heading"><h2>Your Position</h2><span className="token-badge">$CFK</span></div><div className="position-value"><div><span>Current value</span><strong>{account?formatMoney(position?.valueUsd):'$0.00'}</strong></div>{position?.pnlPercent!=null&&<div className="position-return"><strong className={position.pnlPercent<0?'loss':'gain'}>{position.pnlPercent>=0?'+':''}{position.pnlPercent.toFixed(2)}%</strong><small>{formatMoney(position.pnlUsd)} return</small></div>}</div><div className="position-tokens"><div><span>Tokens owned</span><strong>{formatNumber(position?.tokens??0)}</strong></div><span className="token-badge">$CFK</span></div>{!account&&<button className="position-sign-in" onClick={openAccount}>Sign in to see your position <span aria-hidden="true">→</span></button>}</section>
       {position?.availableUsd>.01&&<div className="cash-ready"><span><strong>{formatMoney(position.availableUsd)}</strong> ready to withdraw</span><button onClick={()=>begin('withdraw',Math.floor(position.availableUsd*100)/100)}>Withdraw</button></div>}
-      <section className="activity" aria-label="Coin activity"><div className="section-heading"><h2>Coin Activity</h2><span className="activity-badge">Recent buys & sells</span></div><ul>{activity?.items?.length?activity.items.slice(0,6).map(item=><li key={item.id}><span className={'activity-icon '+item.side}><Icon name={item.side==='buy'?'plus':'arrow'}/></span><div><strong>{item.side==='buy'?'Bought':'Sold'} CFK</strong><small>{new Date(item.timestamp).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</small></div><div className="activity-value"><strong>{item.usd!=null?formatMoney(item.usd):formatNumber(item.tokens)+' CFK'}</strong></div><a href={'https://solscan.io/tx/'+item.signature} target="_blank" rel="noreferrer" aria-label="View transaction"><Icon/></a></li>):<li className="empty-activity"><p>{activity?.unavailable?'Activity is unavailable right now.':'Confirmed buys and sells will appear here.'}</p></li>}</ul><p className="source-note">Verified activity only. Missing data is shown as —.</p></section>
+      <section className="activity" aria-label="Coin activity"><div className="section-heading"><h2>Coin Activity</h2><span className="activity-badge">Latest trades</span></div><div className="activity-status"><span className={activity?.unavailable?'status-dot offline':'status-dot'}/><span>{activity?.unavailable?'Reconnecting to activity':'Recent buys & sells'}</span><small>{activity?.updatedAt?'Updated '+new Date(activity.updatedAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):'Connecting…'}</small></div><ul>{activity?.items?.length?activity.items.slice(0,10).map(item=><li key={item.id}><span className={'activity-icon '+item.side}><Icon name={item.side==='buy'?'plus':'arrow'}/></span><div><strong>{item.side==='buy'?'Bought':'Sold'} CFK</strong><small>{new Date(item.timestamp).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</small></div><div className="activity-value"><strong>{item.usd!=null?formatMoney(item.usd):formatNumber(item.tokens)+' CFK'}</strong></div><a href={'https://solscan.io/tx/'+item.signature} target="_blank" rel="noreferrer" aria-label="View transaction"><Icon/></a></li>):<li className="empty-activity"><p>{activity?.unavailable?'Activity is unavailable right now.':'Confirmed buys and sells will appear here.'}</p></li>}</ul><p className="source-note">Confirmed coin activity. Prices shown in USD when available.</p></section>
       <footer><p>Crypto can lose all its value. No returns are guaranteed.<br/>Free Crypto App LLC and related parties may hold or sell CFK.</p><nav aria-label="Legal"><button onClick={()=>setModal('disclosures')}>Disclosures</button><button onClick={()=>setModal('terms')}>Terms</button><button onClick={()=>setModal('privacy')}>Privacy</button><button onClick={()=>setModal('measurement')}>Privacy choices</button></nav><p>Operated by Free Crypto App LLC</p><a href="mailto:support@freecryptoapp.com">support@freecryptoapp.com</a><a className="coin-details" href={'https://pump.fun/coin/'+(config?.mint||MINT)} target="_blank" rel="noreferrer">Coin details ↗</a></footer>
     </main>
-    <section className="trade-dock" aria-label="Buy or sell CFK"><div className="dock-inner"><div className="amount-row"><label htmlFor="amount">Amount</label><div className="amount-input"><span>$</span><input id="amount" inputMode="decimal" aria-label="Amount in US dollars" value={amount} onChange={e=>{if(/^\d{0,8}(\.\d{0,2})?$/.test(e.target.value))setAmount(e.target.value);}}/><span>USD</span></div><div className="presets">{[20,50,100].map(n=><button key={n} aria-pressed={Number(amount)===n} onClick={()=>setAmount(String(n))}>{'$'+n}</button>)}<button onClick={()=>{if(position?.valueUsd>0)setAmount((Math.floor(position.valueUsd*100)/100).toFixed(2));else setNotice('Sign in by choosing Sell to see your position.');}}>All</button></div></div><div className="trade-buttons"><button className="primary sell" aria-label={'Sell '+formatMoney(Number(amount)||0)+' of CFK'} disabled={!Number(amount)||busy} onClick={()=>begin('sell')}>Sell</button><button className="primary" disabled={!Number(amount)||busy} onClick={()=>begin('buy')}>Buy {formatMoney(Number(amount)||0)}<Icon name="plus"/></button></div><p className="fee-note">15% to buy with cash · 15% to withdraw cash<br/><button onClick={()=>setModal('disclosures')}>See all fees · Price may move up to 1%</button></p></div></section>
-    {walletActive&&config?.privyAppId&&<Suspense fallback={null}><Wallet appId={config.privyAppId} activation={activation} onReady={onReady} onError={onError}/></Suspense>}
+    <TradeDock amount={amount} setAmount={setAmount} onBuy={()=>begin('buy')} onSell={()=>begin('sell')} onCustom={()=>{setCustomAmount(amount);setModal('amount');}} busy={busy} openingSignIn={flow.step==='sign-in'} />
+    {modal==='amount'&&<Modal title="Choose your amount" onClose={()=>setModal(null)}><form onSubmit={e=>{e.preventDefault();if(Number(customAmount)>0){setAmount(customAmount);setModal(null);}}}><label className="custom-label" htmlFor="custom-amount">How much would you like to spend?</label><div className="custom-amount"><span>$</span><input autoFocus id="custom-amount" aria-label="Custom amount in US dollars" inputMode="decimal" value={customAmount} onChange={e=>{if(/^\d{0,8}(\.\d{0,2})?$/.test(e.target.value))setCustomAmount(e.target.value);}}/><span>USD</span></div><button className="primary" disabled={!Number(customAmount)} type="submit">Use {formatMoney(Number(customAmount)||0)}</button></form></Modal>}
+    {walletActive&&config?.privyAppId&&<Suspense fallback={null}><Wallet appId={config.privyAppId} activation={activation} loginMethod={loginMethod} onReady={onReady} onError={onError} onCancel={onCancelSignIn}/></Suspense>}
     {notice&&<div className="toast" role="status">{notice}</div>}
-    {modal==='transaction'&&<Modal title={intent==='withdraw'?'Withdraw cash':intent==='sell'?'Sell CFK':'Buy CFK'} onClose={close}>
+    {modal==='transaction'&&<Modal title={flow.step==='auth-error'?'Sign in to continue':intent==='withdraw'?'Withdraw cash':intent==='sell'?'Sell CFK':'Buy CFK'} onClose={close}>
+      {flow.step==='auth-error'&&<div className="flow-state"><h3>Let’s try signing in again</h3><p role="status">{flow.message}</p><button className="primary" onClick={()=>signIn('email')}>Continue with email</button><button className="secondary" onClick={()=>signIn()}>Choose sign-in method</button></div>}
       {['idle','loading','buying','confirming'].includes(flow.step)&&<div className="flow-state"><div className="spinner"/><h3>{flow.step==='idle'?'Getting you ready':flow.step==='confirming'?'Confirming your transaction':flow.step==='buying'?(flow.side==='sell'?'Selling your CFK':'Buying your CFK'):'Preparing your amount'}</h3><p>{flow.step==='idle'?'A quick sign-in keeps your coins yours.':'You can follow the progress here.'}</p></div>}
       {flow.step==='ramp-review'&&<div className="review"><h3>{formatMoney(flow.grossCents/100)}</h3><dl><div><dt>Platform fee · 15%</dt><dd>{formatMoney(flow.platformFeeCents/100)}</dd></div><div><dt>Payment provider fee</dt><dd>{formatMoney(flow.providerFeeCents/100)}</dd></div><div><dt>{flow.direction==='onramp'?'Available for CFK & extra costs':'Estimated cash payout'}</dt><dd>{formatMoney(flow.netCents/100)}</dd></div></dl><p>{flow.direction==='onramp'?'After payment is confirmed, we automatically buy CFK with these funds, allowing up to 1% price movement. Coin purchase and network costs are extra. Any unused funds stay available to withdraw.':'Complete the payment provider’s withdrawal process to receive your cash.'}</p><button className="primary" onClick={openPayment}>{flow.direction==='onramp'?'Pay '+formatMoney(flow.grossCents/100)+' & buy CFK':'Continue withdrawal'}</button></div>}
       {flow.step==='checkout'&&<><iframe className="checkout-frame" src={flow.checkoutUrl} title="Secure payment" allow="payment" referrerPolicy="no-referrer"/><p className="dialog-copy">{flow.direction==='onramp'?'Your CFK purchase starts automatically after your payment is verified.':'Your payout is confirmed by the payment provider.'}</p><button className="secondary" disabled={busy} onClick={resume}>Check payment</button></>}
