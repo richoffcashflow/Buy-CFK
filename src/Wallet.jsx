@@ -33,8 +33,9 @@ function Bridge({onReady, onError, onCancel, activation, loginMethod}) {
   useEffect(() => {
     if (activation <= 0 || !ready || authenticated || loginStarted.current === activation) return;
     loginStarted.current = activation;
-    // Always offer the sign-in screen after an explicit tap. Telegram context alone
-    // is not proof that seamless authentication succeeded.
+    // Privy verifies the signed Mini App session automatically. Do not race
+    // that flow with the external phone-number login popup.
+    if (window.Telegram?.WebApp?.initData) return;
     login({loginMethods: ['telegram']});
   }, [ready, authenticated, login, activation, loginMethod]);
   useEffect(() => {
@@ -52,10 +53,10 @@ function Bridge({onReady, onError, onCancel, activation, loginMethod}) {
     }});
   }, [authenticated, walletsReady, user?.id, wallet?.address, ensureWallet, onReady]);
   useEffect(() => {
-    if (!activation || ready) return;
-    const timer = setTimeout(() => onError('The sign-in service is taking longer than usual. Please try again.'), 20000);
+    if (!activation || authenticated) return;
+    const timer = setTimeout(() => onError(window.Telegram?.WebApp?.initData ? 'Telegram sign-in did not complete. Close this Mini App fully and reopen it from the bot, then try again.' : 'Telegram sign-in is waiting for approval. Open the Mini App directly from the bot to use your Telegram session.'), 20000);
     return () => clearTimeout(timer);
-  }, [ready, onError, activation]);
+  }, [authenticated, onError, activation]);
   useEffect(() => {
     if (!activation || !authenticated || walletsReady) return;
     const timer = setTimeout(() => onError('You are signed in, but your coin account is still connecting. Please try again shortly.'), 30000);
