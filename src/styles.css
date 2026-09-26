@@ -30,8 +30,9 @@ svg { width: 20px; height: 20px; flex-shrink: 0; }
 .coin-identity-main > img { flex-shrink: 0; width: 48px; height: 48px; border-radius: 50%; background: #000; }
 .coin-identity h1 { font-size: 23px; font-weight: 900; letter-spacing: -.8px; line-height: 1.1; margin: 0 0 6px; }
 .coin-identity div > span { color: #91c8fa; font-size: 14px; font-weight: 700; }
-.brand-tagline { margin: 0; padding-top: 11px; border-top: 1px solid #ffffff20; font-size: 13px; font-weight: 650; line-height: 1.5; }
-.brand-tagline span { color: #b3c7db; font-weight: 450; margin-left: 5px; }
+.hero-headline { margin: 0; padding-top: 14px; border-top: 1px solid #ffffff20; color: #fff; font-size: clamp(24px, 6.5vw, 32px); font-weight: 850; letter-spacing: -.8px; line-height: 1.12; }
+.hero-headline span { color: #91c8fa; white-space: nowrap; }
+.brand-tagline { margin: -4px 0 0; color: #b3c7db; font-size: 13px; font-weight: 550; line-height: 1.5; }
 .about-coin { padding: 24px 21px; margin-top: 14px; border-radius: 24px; background: #edf6ff; border: 1px solid #dcecff; }
 .about-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
 .brand-eyebrow { color: #3972a2; font-size: 10px; letter-spacing: 1.5px; font-weight: 800; }
