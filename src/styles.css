@@ -30,14 +30,14 @@ svg { width: 20px; height: 20px; flex-shrink: 0; }
 .coin-identity-main > img { flex-shrink: 0; width: 48px; height: 48px; border-radius: 50%; background: #000; }
 .coin-identity h1 { font-size: 23px; font-weight: 900; letter-spacing: -.8px; line-height: 1.1; margin: 0 0 6px; }
 .coin-identity div > span { color: #91c8fa; font-size: 14px; font-weight: 700; }
+.official-token-label { align-self: flex-start; padding: 7px 10px; border: 1px solid #91c8fa75; border-radius: 100px; background: #91c8fa1e; color: #d5eaff; font-size: 10px; font-weight: 800; letter-spacing: 1px; }
 .hero-headline { margin: 0; padding-top: 14px; border-top: 1px solid #ffffff20; color: #fff; font-size: clamp(24px, 6.5vw, 32px); font-weight: 850; letter-spacing: -.8px; line-height: 1.12; }
 .hero-headline span { color: #91c8fa; white-space: nowrap; }
 .brand-tagline { margin: -4px 0 0; color: #b3c7db; font-size: 13px; font-weight: 550; line-height: 1.5; }
-.about-coin { padding: 24px 21px; margin-top: 14px; border-radius: 24px; background: #edf6ff; border: 1px solid #dcecff; }
-.about-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.token-address-link { align-self: flex-start; color: #b9dfff; font-size: 12px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.token-address-link span { margin-left: 3px; }
 .brand-eyebrow { color: #3972a2; font-size: 10px; letter-spacing: 1.5px; font-weight: 800; }
-.about-coin p, .creator-body p { color: #69798b; font-size: 13px; line-height: 1.7; margin: 10px 0 17px; }
-.about-coin a { color: var(--blue-dark); text-decoration: none; display: inline-flex; align-items: center; gap: 12px; min-height: 44px; font-size: 13px; font-weight: 750; }
+.creator-body p { color: #69798b; font-size: 13px; line-height: 1.7; margin: 10px 0 17px; }
 .creator-card { margin-top: 14px; overflow: hidden; }
 .creator-photo { position: relative; height: 260px; background: #172333; }
 .creator-photo > img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 10%; display: block; }
@@ -84,7 +84,6 @@ h2 { margin: 0; font-size: 21px; letter-spacing: -.65px; font-weight: 850; }
 .ranges button[aria-pressed=true] { background: var(--blue-light); color: var(--blue); }
 .primary { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; min-height: 52px; padding: 14px 12px; border-radius: 16px; border: 1px solid transparent; background: var(--blue); color: #fff; font-size: 16px; font-weight: 850; text-decoration: none; }
 .primary:hover { background: var(--blue-dark); }.primary.sell { background: #fff; border: 1.5px solid #e3e6ec; color: #151923; }.primary.sell:hover { background: #f6f8fb; }
-.inline-trade { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 10px; }.inline-trade .primary { font-size: 15px; min-height: 53px; }
 .market-card { margin-top: 14px; padding: 20px; }.market-card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 14px; }
 .market-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; padding: 0; margin: 0; }
 .market-stats > div { padding: 14px; background: #f6f7f9; border-radius: 15px; }
