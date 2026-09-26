@@ -34,8 +34,11 @@ svg { width: 20px; height: 20px; flex-shrink: 0; }
 .hero-headline { margin: 0; padding-top: 14px; border-top: 1px solid #ffffff20; color: #fff; font-size: clamp(24px, 6.5vw, 32px); font-weight: 850; letter-spacing: -.8px; line-height: 1.12; }
 .hero-headline span { color: #91c8fa; white-space: nowrap; }
 .brand-tagline { margin: -4px 0 0; color: #b3c7db; font-size: 13px; font-weight: 550; line-height: 1.5; }
-.token-address-link { align-self: flex-start; color: #b9dfff; font-size: 12px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
-.token-address-link span { margin-left: 3px; }
+.token-address-link { align-self: flex-start; padding: 0; border: 0; background: none; color: #b9dfff; font-size: 12px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.token-details p { margin: 0 0 21px; color: #68798b; font-size: 14px; line-height: 1.6; }
+.token-details > span { display: block; margin-bottom: 8px; color: #77889a; font-size: 12px; font-weight: 700; }
+.token-details code { display: block; padding: 13px; border: 1px solid var(--line); border-radius: 12px; background: #f7f8fa; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; user-select: all; }
+.token-details .primary { margin-top: 18px; }
 .brand-eyebrow { color: #3972a2; font-size: 10px; letter-spacing: 1.5px; font-weight: 800; }
 .creator-body p { color: #69798b; font-size: 13px; line-height: 1.7; margin: 10px 0 17px; }
 .creator-card { margin-top: 14px; overflow: hidden; }
