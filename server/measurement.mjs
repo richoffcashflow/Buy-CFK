@@ -5,7 +5,7 @@ export function configuredDestinations(name){
   const e=process.env,result=[];
   if(e.META_PIXEL_ID&&e.META_ACCESS_TOKEN)result.push('meta');
   if(e.TIKTOK_PIXEL_ID&&e.TIKTOK_ACCESS_TOKEN)result.push('tiktok');
-  if(e.OPENAI_PIXEL_ID&&e.OPENAI_CONVERSIONS_API_KEY)result.push('openai');
+  if(name!=='AddToCart'&&e.OPENAI_PIXEL_ID&&e.OPENAI_CONVERSIONS_API_KEY)result.push('openai');
   if(name==='Purchase'&&e.GOOGLE_ADS_REFRESH_TOKEN&&e.GOOGLE_ADS_CONVERSION_ACTION)result.push('google');
   if(name==='Purchase'&&e.GA4_MEASUREMENT_ID&&e.GA4_API_SECRET)result.push('ga4');
   if(name!=='Withdrawal'&&e.X_PIXEL_ID&&e.X_CONSUMER_KEY&&e.X_CONSUMER_SECRET&&e.X_ACCESS_TOKEN&&e.X_ACCESS_TOKEN_SECRET)result.push('x');
