@@ -196,6 +196,7 @@ export default function App(){
     }catch(e){setFlow({step:'blocked',message:e.message});}finally{setLock(false);}
   }
   function chooseConsent(value){setConsent(value);setConsentState(getConsent());track('ViewContent',{trigger:'coin_page'},config).catch(()=>{});if(modal==='measurement')setModal(null);}
+  async function copyMint(){try{await navigator.clipboard.writeText(config?.mint||MINT);setNotice('Token address copied.');}catch{setNotice('Select the address to copy it.');}}
   const close=()=>{if(lock.current)return;queuedAction.current=null;setModal(null);};
   const change=market?.change24h,changeText=change!=null?(change>=0?'+':'')+change.toFixed(2)+'%':'—';
   return <>
@@ -205,7 +206,7 @@ export default function App(){
         <span className="official-token-label">OFFICIAL CASHFLOWKEY TOKEN</span>
         <h2 className="hero-headline">Buy, sell &amp; track <span>$CFK</span></h2>
         <p className="brand-tagline">The official token of Cashflowkey, on Solana.</p>
-        <a className="token-address-link" href={'https://solscan.io/token/'+(config?.mint||MINT)} target="_blank" rel="noopener noreferrer">View token address <span aria-hidden="true">↗</span></a>
+        <button type="button" className="token-address-link" onClick={()=>setModal('token')}>Token details</button>
       </header>
       <section className="coin-card" aria-label="Cashflowkey market">
         <div className="price-heading"><h2>$CFK Price</h2><span className="price-currency">USD</span></div>
@@ -223,6 +224,7 @@ export default function App(){
       <footer><p>Crypto can lose all its value. No returns are guaranteed.<br/>Free Crypto App LLC and related parties may hold or sell CFK.</p><nav aria-label="Legal"><button onClick={()=>setModal('disclosures')}>Disclosures</button><button onClick={()=>setModal('terms')}>Terms</button><button onClick={()=>setModal('privacy')}>Privacy</button><button onClick={()=>setModal('measurement')}>Privacy choices</button></nav><p>Operated by Free Crypto App LLC</p><a href="mailto:support@freecryptoapp.com">support@freecryptoapp.com</a></footer>
     </main>
     <TradeDock amount={amount} setAmount={setAmount} onBuy={()=>begin('buy')} onSell={()=>begin('sell')} onCustom={()=>{setCustomAmount(amount);setModal('amount');}} busy={busy} canSell={position?.tokens>0} openingSignIn={flow.step==='sign-in'} />
+    {modal==='token'&&<Modal title="$CFK token details" onClose={()=>setModal(null)}><div className="token-details"><p>Official Cashflowkey token on Solana.</p><span>Token address</span><code>{config?.mint||MINT}</code><button className="primary" onClick={copyMint}>Copy address</button></div></Modal>}
     {modal==='amount'&&<Modal title="Choose your amount" onClose={()=>setModal(null)}><form onSubmit={e=>{e.preventDefault();if(Number(customAmount)>0){setAmount(customAmount);setModal(null);}}}><label className="custom-label" htmlFor="custom-amount">How much would you like to spend?</label><div className="custom-amount"><span>$</span><input autoFocus id="custom-amount" aria-label="Custom amount in US dollars" inputMode="decimal" value={customAmount} onChange={e=>{if(/^\d{0,8}(\.\d{0,2})?$/.test(e.target.value))setCustomAmount(e.target.value);}}/><span>USD</span></div><button className="primary" disabled={!Number(customAmount)} type="submit">Use {formatMoney(Number(customAmount)||0)}</button></form></Modal>}
     {walletActive&&config?.privyAppId&&<Suspense fallback={null}><Wallet appId={config.privyAppId} activation={activation} loginMethod={loginMethod} onReady={onReady} onError={onError} onCancel={onCancelSignIn}/></Suspense>}
     {notice&&<div className="toast" role="status">{notice}</div>}
