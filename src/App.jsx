@@ -96,7 +96,7 @@ export default function App(){
   function begin(side,override){
     if(lock.current)return;
     setIntent(side);
-    if(side==='buy')track('InitiateCheckout',{trigger:'buy_pressed'},config).catch(()=>{});
+    if(side==='buy')track('AddToCart',{trigger:'buy_pressed'},config).catch(()=>{});
     setModal('transaction');
     if(side==='withdraw'&&pendingRef.current?.type==='funded')savePending(null);
     if(pendingRef.current){setFlow({step:'pending',message:'Your previous payment or trade is still being checked.'});if(bridgeRef.current)resume();else{setWalletActive(true);setActivation(n=>n+1);}return;}
@@ -124,8 +124,8 @@ export default function App(){
         let attempt;try{attempt=JSON.parse(remember.get('cfk_payment_attempt')||durable.get('cfk_payment_attempt')||'null');}catch{}
         if(!attempt||!attempt.savedAt||Date.now()-attempt.savedAt>PENDING_LIFETIME||attempt.amountUsd!==action.amountUsd||attempt.wallet!==address||attempt.direction!==direction){attempt={id:crypto.randomUUID(),amountUsd:action.amountUsd,wallet:address,direction,savedAt:Date.now()};const value=JSON.stringify(attempt);remember.set('cfk_payment_attempt',value);durable.set('cfk_payment_attempt',value);}
         const data=await api('/ramp/session',{method:'POST',token,body:{wallet:address,direction,grossCents:Math.round(action.amountUsd*100),sessionId:session.id,checkoutId:attempt.id,intent:action.side}});
-        if(data.existingPayment){savePending({type:'payment',direction,provider:data.provider,rampId:data.rampId});setFlow({step:'pending',message:'Checking your existing payment…'});}
-        else startPayment({direction,...data});
+        if(data.existingPayment){savePending({type:'payment',direction,provider:data.provider,rampId:data.rampId,checkoutId:attempt.id});setFlow({step:'pending',message:'Checking your existing payment…'});}
+        else startPayment({direction,...data,checkoutId:attempt.id});
       }else{
         const data=await api('/trade/prepare',{method:'POST',token,body:{wallet:address,side:'sell',amountUsd:action.amountUsd,sessionId:session.id}});
         await execute(data,'sell');
@@ -161,9 +161,8 @@ export default function App(){
       if(result.status==='failed'){savePending(null);throw new Error('The payment did not complete.');}
       if(result.status==='review_required'){setFlow({step:'funding-review',...result});return;}
       if(result.status==='sandbox_complete'){savePending(null);setFlow({step:'sandbox-complete'});return;}
-      if(result.status!=='completed'){setFlow({step:'checkout',...pending,...result});return;}
+      if(result.status!=='completed'){setFlow({step:'checkout',...pending,...result});if(result.direction==='onramp'&&pending.checkoutId&&(pending.checkoutUrl||result.clientSecret))track('InitiateCheckout',{trigger:'payment_ready',checkoutId:pending.checkoutId},config).catch(()=>{});return;}
       if(result.direction==='offramp'){savePending(null);setFlow({step:'paid'});await refreshPosition();return;}
-      if(result.event)track('InitiateCheckout',{...result.event,trigger:'money_added'},config,{verified:true}).catch(()=>{});
       savePending({...pending,type:'funded'});await buyFunded(pending);
     }catch(e){
       const p=pendingRef.current;if(e.status===409&&p?.type==='trade')savePending(null);
@@ -177,7 +176,7 @@ export default function App(){
     else {setFlow({step:'idle'});setModal(null);}
   },[account,config]);
   useEffect(()=>{if(!account||!['checkout','pending'].includes(flow.step))return;const t=setInterval(()=>resume(),5000);return()=>clearInterval(t);},[account,flow.step]);
-  function startPayment(payment){const pending={type:'payment',provider:payment.provider,providerName:payment.providerName,direction:payment.direction,rampId:payment.rampId,checkoutUrl:payment.checkoutUrl,grossCents:payment.grossCents,platformFeeCents:payment.platformFeeCents,providerFeeCents:payment.providerFeeCents,netCents:payment.netCents};savePending(pending);setFlow({...payment,...pending,step:'checkout'});}
+  function startPayment(payment){const pending={type:'payment',provider:payment.provider,providerName:payment.providerName,direction:payment.direction,rampId:payment.rampId,checkoutId:payment.checkoutId,checkoutUrl:payment.checkoutUrl,grossCents:payment.grossCents,platformFeeCents:payment.platformFeeCents,providerFeeCents:payment.providerFeeCents,netCents:payment.netCents};savePending(pending);setFlow({...payment,...pending,step:'checkout'});if(payment.direction==='onramp')track('InitiateCheckout',{trigger:'payment_ready',checkoutId:payment.checkoutId},config).catch(()=>{});}
   async function approveFunding(){
     if(lock.current)return;setLock(true);
     try{const result=await api('/ramp/approve',{method:'POST',token:await bridgeRef.current.getAccessToken(),body:{rampId:flow.rampId,reviewToken:flow.reviewToken}});
