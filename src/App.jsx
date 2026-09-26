@@ -205,7 +205,7 @@ export default function App(){
         <span className="official-token-label">OFFICIAL CASHFLOWKEY TOKEN</span>
         <h2 className="hero-headline">Buy, sell &amp; track <span>$CFK</span></h2>
         <p className="brand-tagline">The official token of Cashflowkey, on Solana.</p>
-        <a className="token-address-link" href={'https://solscan.io/token/'+MINT} target="_blank" rel="noopener noreferrer">View token address <span aria-hidden="true">↗</span></a>
+        <a className="token-address-link" href={'https://solscan.io/token/'+(config?.mint||MINT)} target="_blank" rel="noopener noreferrer">View token address <span aria-hidden="true">↗</span></a>
       </header>
       <section className="coin-card" aria-label="Cashflowkey market">
         <div className="price-heading"><h2>$CFK Price</h2><span className="price-currency">USD</span></div>
