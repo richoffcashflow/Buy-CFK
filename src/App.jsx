@@ -96,7 +96,6 @@ export default function App(){
   function begin(side,override){
     if(lock.current)return;
     setIntent(side);
-    if(side==='buy')track('AddToCart',{trigger:'buy_pressed'},config).catch(()=>{});
     setModal('transaction');
     if(side==='withdraw'&&pendingRef.current?.type==='funded')savePending(null);
     if(pendingRef.current){setFlow({step:'pending',message:'Your previous payment or trade is still being checked.'});if(bridgeRef.current)resume();else{setWalletActive(true);setActivation(n=>n+1);}return;}
@@ -105,6 +104,7 @@ export default function App(){
     if(side==='sell'&&position&&!(position.tokens>0)){setFlow({step:'blocked',message:'You do not have any CFK to sell yet. Buy CFK first, then you can sell it here.'});return;}
     if(!config?.privyAppId){setFlow({step:'blocked',message:'Buying and selling are being connected. No payment has been taken.'});return;}
     if(side==='buy'&&config.checkout?.buyEnabled!==true){setFlow({step:'blocked',checkoutDisabled:true,message:'Live buying is not enabled yet. Open the test checkout to continue testing. No payment has been taken.'});return;}
+    if(side==='buy')track('AddToCart',{trigger:'buy_pressed'},config).catch(()=>{});
     queuedAction.current={side,amountUsd:selected};
     if(!bridgeRef.current){signIn();return;}
     setFlow({step:'idle'});
