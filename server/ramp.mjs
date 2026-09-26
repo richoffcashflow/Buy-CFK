@@ -35,7 +35,7 @@ export async function createRamp(user,body){
 }
 export async function reconcileRamp(row){
   if(row.quote?.provider==='stripe')return reconcileStripeRamp(row);
-  if(row.status==='completed')return {status:'completed',direction:row.direction,event:row.direction==='onramp'?{eventId:`checkout_${row.session_id}_${row.checkout_id}`} :null};
+  if(row.status==='completed')return {status:'completed',direction:row.direction};
   if(!row.provider_id)return {status:row.status};
   const payment=await providerRequest('/sessions/'+encodeURIComponent(row.provider_id));
   if(payment.status!=='completed')return {status:payment.status==='failed'?'failed':'pending',direction:row.direction};
@@ -48,10 +48,9 @@ export async function reconcileRamp(row){
     await c.query("UPDATE cfk_ramps SET status='completed',completed_at=now() WHERE id=$1",[row.id]);
     if(row.direction==='onramp'){
       await c.query('INSERT INTO cfk_fee_lots(id,wallet,remaining_units,original_units,remaining_fee_cents,original_fee_cents) VALUES($1,$2,$3,$3,$4,$4) ON CONFLICT DO NOTHING',[row.id,row.wallet,payment.deliveredLamports,payment.platformFeeCents]);
-      await recordEvent(c,{id:`checkout_${row.session_id}_${row.checkout_id}`,sessionId:row.session_id,name:'InitiateCheckout',metadata:{trigger:'money_added',rampId:row.id}});
     }else await recordEvent(c,{id:'withdrawal_'+row.id,sessionId:row.session_id,name:'Withdrawal',valueCents:payment.platformFeeCents,metadata:{rampId:row.id,valueBasis:'earned_withdrawal_fee'}});
   });
-  return {status:'completed',direction:row.direction,event:row.direction==='onramp'?{eventId:`checkout_${row.session_id}_${row.checkout_id}`} :null};
+  return {status:'completed',direction:row.direction};
 }
 export async function rampStatus(user,id){const row=(await database().query('SELECT * FROM cfk_ramps WHERE id=$1 AND user_id=$2',[id,user.id])).rows[0];if(!row)throw appError('Payment not found.',404);return row.quote?.provider==='stripe'?reconcileStripeRamp(row,{includeCheckout:true}):reconcileRamp(row);}
 export async function rampWebhook(req,raw){
