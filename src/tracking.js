@@ -1,7 +1,7 @@
 import {api} from './utils.js';
 const keys=['utm_source','utm_medium','utm_campaign','utm_content','utm_term','gclid','gbraid','wbraid','fbclid','ttclid','twclid','oppref','ref'];
 let sessionPromise=null,cachedConfig=null,installed=false;
-const emitted=new Set();
+const emitted=new Set(),inFlight=new Set();
 const pageViewId=crypto.randomUUID();
 let checkoutId=null;
 export function getCheckoutId(){return checkoutId??=crypto.randomUUID();}
@@ -42,18 +42,21 @@ export async function track(name,details={},config,options={}){
   if(name==='Purchase'&&(!options.verified||!details.eventId||!Number.isSafeInteger(details.valueCents)))throw new Error('A confirmed purchase receipt is required.');
   const session=await getSession();
   const eventId=details.eventId||(name==='ViewContent'?`view_${session.id}_${pageViewId}`:name==='AddToCart'?`cart_${session.id}_${crypto.randomUUID()}`:name==='InitiateCheckout'?`checkout_${session.id}_${details.checkoutId||getCheckoutId()}`:crypto.randomUUID());
-  if(emitted.has(eventId))return;
-  if(name!=='Purchase')await api('/events',{method:'POST',body:{name,eventId,sessionId:session.id,trigger:details.trigger,attribution:captureAttribution()}});
-  emitted.add(eventId);install(config);
-  const c=config.tracking||{},value=name==='Purchase'?details.valueCents/100:0;
-  const common={currency:'USD',value,content_ids:[config.mint],content_type:'product',content_name:'CFK platform fee'};
-  window.fbq?.('track',name,common,{eventID:eventId});
-  window.ttq?.track(name==='Purchase'?'Purchase':name,common,{event_id:eventId});
-  if(c.xEvents?.[name])window.twq?.('event',c.xEvents[name],{value,currency:'USD',conversion_id:eventId});
-  if(name!=='AddToCart')window.oaiq?.('measure',{ViewContent:'contents_viewed',InitiateCheckout:'checkout_started',Purchase:'order_created'}[name],{type:'contents',currency:'USD',amount:name==='Purchase'?details.valueCents:0,contents:[{id:config.mint,name:'CFK platform fee',content_type:'product',quantity:1}]},{event_id:eventId});
-  const googleName={ViewContent:'view_item',AddToCart:'add_to_cart',InitiateCheckout:'begin_checkout',Purchase:'purchase'}[name];
-  if(!(name==='Purchase'&&c.ga4ServerPurchases))window.gtag?.('event',googleName,{currency:'USD',value,transaction_id:eventId,items:[{item_id:config.mint,item_name:'CFK platform fee',price:value,quantity:1}]});
-  if(c.googleConversions?.[name]&&!(name==='Purchase'&&c.googleServerPurchases))window.gtag?.('event','conversion',{send_to:c.googleConversions[name],value,currency:'USD',transaction_id:eventId});
-  window.dataLayer?.push({event:`cfk_${name}`,event_id:eventId,currency:'USD',value,fee_revenue_cents:details.valueCents??0});
-  if(name==='Purchase')checkoutId=null;
+  if(emitted.has(eventId)||inFlight.has(eventId))return;
+  inFlight.add(eventId);
+  try{
+    if(name!=='Purchase')await api('/events',{method:'POST',body:{name,eventId,sessionId:session.id,trigger:details.trigger,attribution:captureAttribution()}});
+    emitted.add(eventId);install(config);
+    const c=config.tracking||{},value=name==='Purchase'?details.valueCents/100:0;
+    const common={currency:'USD',value,content_ids:[config.mint],content_type:'product',content_name:'CFK platform fee'};
+    window.fbq?.('track',name,common,{eventID:eventId});
+    window.ttq?.track(name==='Purchase'?'Purchase':name,common,{event_id:eventId});
+    if(c.xEvents?.[name])window.twq?.('event',c.xEvents[name],{value,currency:'USD',conversion_id:eventId});
+    if(name!=='AddToCart')window.oaiq?.('measure',{ViewContent:'contents_viewed',InitiateCheckout:'checkout_started',Purchase:'order_created'}[name],{type:'contents',currency:'USD',amount:name==='Purchase'?details.valueCents:0,contents:[{id:config.mint,name:'CFK platform fee',content_type:'product',quantity:1}]},{event_id:eventId});
+    const googleName={ViewContent:'view_item',AddToCart:'add_to_cart',InitiateCheckout:'begin_checkout',Purchase:'purchase'}[name];
+    if(!(name==='Purchase'&&c.ga4ServerPurchases))window.gtag?.('event',googleName,{currency:'USD',value,transaction_id:eventId,items:[{item_id:config.mint,item_name:'CFK platform fee',price:value,quantity:1}]});
+    if(c.googleConversions?.[name]&&!(name==='Purchase'&&c.googleServerPurchases))window.gtag?.('event','conversion',{send_to:c.googleConversions[name],value,currency:'USD',transaction_id:eventId});
+    window.dataLayer?.push({event:`cfk_${name}`,event_id:eventId,currency:'USD',value,fee_revenue_cents:details.valueCents??0});
+    if(name==='Purchase')checkoutId=null;
+  }finally{inFlight.delete(eventId);}
 }
