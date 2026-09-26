@@ -47,7 +47,11 @@ async function stripeCheckout(row){
 }
 export async function createStripeRamp(user,body){
   if(!stripeReady()||process.env.TRADING_ENABLED!=='true')throw appError('Buying is being connected. No payment has been taken.',503);
-  if(body.direction!=='onramp'||body.intent!=='buy'||!validAddress(body.wallet)||body.wallet===process.env.PLATFORM_FEE_WALLET||!/^[a-f0-9-]{36}$/.test(body.checkoutId||''))throw appError('Invalid payment request.');
+  const reject=(code,message)=>{console.warn('CFK_CHECKOUT_VALIDATION',code);throw appError(message);};
+  if(body.direction!=='onramp'||body.intent!=='buy')reject('invalid_action','This payment must start from the Buy button.');
+  if(!validAddress(body.wallet))reject('invalid_wallet','Your coin account is not ready. Close and reopen the app, then try again.');
+  if(body.wallet===process.env.PLATFORM_FEE_WALLET)reject('fee_wallet_buyer','This account receives the app’s fees and cannot also be the buyer. Use a separate buyer account for the live purchase. No payment has been taken.');
+  if(!/^[a-f0-9-]{36}$/.test(body.checkoutId||''))reject('invalid_checkout_reference','Your checkout reference is invalid. Close and reopen the app, then start a new purchase.');
   feeBreakdown(body.grossCents);await getSession(body.sessionId);
   // Persist the quote and id before contacting Stripe. Retries reuse identical
   // parameters and the same Stripe idempotency key even after network timeouts.
