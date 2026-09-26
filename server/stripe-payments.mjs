@@ -2,7 +2,7 @@ import {createHmac,timingSafeEqual,randomUUID} from 'node:crypto';
 import {appError,feeBreakdown,validAddress,sha} from './core.mjs';
 import {stripeConfiguration,stripeReady,validFeeRecipient} from './stripe-config.mjs';
 import {database,transaction} from './db.mjs';
-import {getSession,recordEvent} from './events.mjs';
+import {getSession} from './events.mjs';
 import {rpc} from './market.mjs';
 
 export function decimalUnits(value,decimals){
@@ -84,9 +84,8 @@ export function stripeFundingReceipt(data,row){
   if(feeLamports>=lamports)throw appError('This payment does not cover purchase costs.',409);
   return {...fee,sourceCents,deliveredLamports:lamports.toString(),feeLamports:feeLamports.toString(),feeRecipient:row.quote.feeRecipient,transactionId:d.transaction_id};
 }
-function fundingEvent(row){return {eventId:`checkout_${row.session_id}_${row.checkout_id}`};}
 export async function reconcileStripeRamp(row,{includeCheckout=false,approval}={}){
-  if(row.status==='completed')return {status:'completed',direction:'onramp',event:fundingEvent(row)};
+  if(row.status==='completed')return {status:'completed',direction:'onramp'};
   if(row.status==='failed')return {status:'failed',direction:'onramp'};
   if(!row.provider_id)return {status:'pending',direction:'onramp'};
   const data=await stripeRequest('/v1/crypto/onramp_sessions/'+row.provider_id);sessionMatches(data,row);
@@ -114,9 +113,8 @@ export async function reconcileStripeRamp(row,{includeCheckout=false,approval}={
     await c.query("UPDATE cfk_ramps SET gross_cents=$2,platform_fee_cents=$3,provider_fee_cents=$4,net_cents=$5,quote=$6,status='completed',completed_at=now() WHERE id=$1",[row.id,receipt.grossCents,receipt.platformFeeCents,receipt.providerFeeCents,receipt.netCents,quote]);
     // No fee is earned at funding. The atomic coin purchase settles it later.
     await c.query('INSERT INTO cfk_fee_lots(id,wallet,remaining_units,original_units,remaining_fee_cents,original_fee_cents) VALUES($1,$2,$3,$3,0,0) ON CONFLICT DO NOTHING',[row.id,row.wallet,receipt.deliveredLamports]);
-    await recordEvent(c,{id:fundingEvent(row).eventId,sessionId:row.session_id,name:'InitiateCheckout',metadata:{trigger:'money_added',rampId:row.id}});
   });
-  return {status:'completed',direction:'onramp',event:fundingEvent(row)};
+  return {status:'completed',direction:'onramp'};
 }
 export function verifyStripeSignature(raw,header,secret,now=Date.now()){
   if(typeof header!=='string'||!secret)return false;

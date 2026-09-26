@@ -7,6 +7,7 @@ import {PGlite} from '@electric-sql/pglite';
 import {Keypair} from '@solana/web3.js';
 import {stripeFundingReceipt,verifyStripeSignature,decimalUnits,createStripeRamp,reconcileStripeRamp} from '../server/stripe-payments.mjs';
 import {rampStatus} from '../server/ramp.mjs';
+import {browserEvent} from '../server/events.mjs';
 const wallet=Keypair.generate().publicKey.toBase58(),recipient=Keypair.generate().publicKey.toBase58();
 const makeData=row=>({id:row.provider_id,object:'crypto.onramp_session',livemode:true,status:'fulfillment_complete',metadata:{cfk_ramp_id:row.id,cfk_wallet:row.wallet},client_secret:row.provider_id+'_secret_TESTONLY',transaction_details:{lock_wallet_address:true,wallet_address:row.wallet,wallet_addresses:{solana:row.wallet},destination_currency:'sol',destination_network:'solana',source_currency:'usd',source_amount:'18.00',destination_amount:'0.18',fees:{network_fee_amount:'0.10',transaction_fee_amount:'1.90'},transaction_id:'4'.repeat(64)}});
 
@@ -57,7 +58,12 @@ test('Stripe retries share one checkout, funding needs finalized delivery, and d
   };
   try{
     await db.query('INSERT INTO cfk_sessions(id,source_url) VALUES($1,$2)',[session,'https://example.com']);
+    const cartId=`cart_${session}_${randomUUID()}`,checkoutId=`checkout_${session}_${body.checkoutId}`;
+    await browserEvent({}, {name:'AddToCart',eventId:cartId,sessionId:session,trigger:'buy_pressed'});
     const checkout=await createStripeRamp(user,body),again=await createStripeRamp(user,body);
+    await assert.rejects(browserEvent({}, {name:'InitiateCheckout',eventId:checkoutId,sessionId:session,trigger:'buy_pressed'}),{status:403});
+    await browserEvent({}, {name:'InitiateCheckout',eventId:checkoutId,sessionId:session,trigger:'payment_ready'});
+    await browserEvent({}, {name:'InitiateCheckout',eventId:checkoutId,sessionId:session,trigger:'payment_ready'});
     assert.equal(checkout.rampId,again.rampId);assert.equal(posts,1);assert.ok(checkout.clientSecret);
     await assert.rejects(createStripeRamp(user,{...body,grossCents:5000}),{status:409});
     await assert.rejects(rampStatus({id:'other-user'},checkout.rampId),{status:404});
@@ -77,6 +83,8 @@ test('Stripe retries share one checkout, funding needs finalized delivery, and d
     const lot=(await db.query('SELECT * FROM cfk_fee_lots')).rows[0];assert.equal(Number(lot.original_fee_cents),0);assert.equal(Number(lot.original_units),180000000);
     assert.equal((await db.query("SELECT * FROM cfk_events WHERE name='Purchase'")).rows.length,0);
     assert.equal((await db.query("SELECT * FROM cfk_events WHERE name='InitiateCheckout'")).rows.length,1);
+    assert.equal((await db.query("SELECT * FROM cfk_events WHERE name='AddToCart'")).rows.length,1);
+    assert.equal((await db.query('SELECT * FROM cfk_events')).rows.length,2);
     const id=randomUUID();await db.query("INSERT INTO cfk_ramps SELECT $1,'cos_SECOND',user_id,wallet,direction,session_id,$2,gross_cents,platform_fee_cents,provider_fee_cents,net_cents,'pending',quote,created_at,NULL FROM cfk_ramps WHERE id=$3",[id,randomUUID(),row.id]);
     row=(await db.query('SELECT * FROM cfk_ramps WHERE id=$1',[id])).rows[0];data.id='cos_SECOND';data.metadata.cfk_ramp_id=id;
     await assert.rejects(reconcileStripeRamp(row),{code:'23505'});
