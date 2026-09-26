@@ -26,9 +26,10 @@ export async function recordEvent(c,{id,sessionId,name,valueCents=0,metadata={}}
   if(inserted.rows.length&&s.consent&&Date.parse(s.expires_at)>Date.now()){for(const provider of configuredDestinations(name)){await c.query('INSERT INTO cfk_deliveries(event_id,provider) VALUES($1,$2) ON CONFLICT DO NOTHING',[id,provider]);}}
 }
 export async function browserEvent(req,body){
-  if(!['ViewContent','InitiateCheckout'].includes(body.name))throw appError('This event requires a verified server receipt.',403);
-  if(body.name==='InitiateCheckout'&&body.trigger!=='buy_pressed')throw appError('Funding events require a confirmed payment.',403);
-  const prefix=body.name==='ViewContent'?'view':'checkout',id=body.eventId;
+  if(!['ViewContent','AddToCart','InitiateCheckout'].includes(body.name))throw appError('This event requires a verified server receipt.',403);
+  if(body.name==='AddToCart'&&body.trigger!=='buy_pressed')throw appError('Invalid buy event.',403);
+  if(body.name==='InitiateCheckout'&&body.trigger!=='payment_ready')throw appError('Invalid checkout event.',403);
+  const prefix={ViewContent:'view',AddToCart:'cart',InitiateCheckout:'checkout'}[body.name],id=body.eventId;
   if(!id?.startsWith(`${prefix}_${body.sessionId}_`)||!new RegExp(`^${prefix}_[a-f0-9]{32}_[a-f0-9-]{36}$`).test(id))throw appError('Invalid event identifier.');
   await database().query("UPDATE cfk_sessions SET attribution=attribution || $2::jsonb WHERE id=$1 AND consent=true",[body.sessionId,cleanAttribution(body.attribution)]);
   await transaction(c=>recordEvent(c,{id,sessionId:body.sessionId,name:body.name,metadata:{trigger:body.trigger}}));
