@@ -21,20 +21,46 @@ export async function createRamp(user,body){
   const fee=feeBreakdown(body.grossCents);
   if(!/^[a-f0-9-]{36}$/.test(body.checkoutId||''))throw appError('Invalid checkout.');
   await getSession(body.sessionId);
-  if(body.direction==='offramp'){const b=await position(body.wallet);if(body.grossCents/100>b.availableUsd)throw appError('Sell your CFK first or choose an amount within your available balance.');}
-  const id=randomUUID();
-  await database().query('INSERT INTO cfk_ramps(id,user_id,wallet,direction,session_id,gross_cents,platform_fee_cents,net_cents,checkout_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',[id,user.id,body.wallet,body.direction,body.sessionId,fee.grossCents,fee.platformFeeCents,fee.netCents,body.checkoutId]);
-  // This contract is implemented by the approved provider adapter. No provider is enabled by default.
-  const quote=await providerRequest('/sessions',{idempotencyKey:id,merchantReference:id,direction:body.direction,wallet:body.wallet,asset:'SOL',network:'solana',currency:'USD',grossCents:fee.grossCents,platformFeeBps:1500,platformFeeCents:fee.platformFeeCents,embed:true,returnUrl:process.env.APP_URL,webhookUrl:process.env.APP_URL+'/api/ramp/webhook'});
-  const expected=feeBreakdown(fee.grossCents,quote.providerFeeCents);
-  const url=new URL(quote.checkoutUrl||'');
+  const intent=body.direction==='onramp'&&body.intent==='buy'?'buy':'withdraw';
+  // Persist one merchant identity before contacting the adapter. Concurrent
+  // requests and uncertain network retries must use the same provider key.
+  let row=await transaction(async c=>{
+    await c.query('SELECT pg_advisory_xact_lock(hashtext($1))',[user.id+':'+body.checkoutId]);
+    const matches=(await c.query('SELECT * FROM cfk_ramps WHERE user_id=$1 AND checkout_id=$2 ORDER BY created_at LIMIT 2',[user.id,body.checkoutId])).rows;
+    if(matches.length>1)throw appError('This checkout has multiple previous payment references. Contact support before paying again.',409);
+    const existing=matches[0];
+    if(existing){
+      if(existing.quote?.provider==='stripe'||existing.quote?.adapterBase&&existing.quote.adapterBase!==providerBase())throw appError('This checkout uses an earlier payment connection. Check your previous payment before starting another.',409);
+      if(existing.wallet!==body.wallet||existing.direction!==body.direction||Number(existing.gross_cents)!==body.grossCents||(existing.quote?.intent&&existing.quote.intent!==intent))throw appError('This checkout already has a different amount or destination. Check your previous payment before starting another.',409);
+      return existing;
+    }
+    if(body.direction==='offramp'){const b=await position(body.wallet);if(body.grossCents/100>b.availableUsd)throw appError('Sell your CFK first or choose an amount within your available balance.');}
+    const id=randomUUID();
+    const request={idempotencyKey:id,merchantReference:id,direction:body.direction,wallet:body.wallet,asset:'SOL',network:'solana',currency:'USD',grossCents:fee.grossCents,platformFeeBps:1500,platformFeeCents:fee.platformFeeCents,embed:true,returnUrl:process.env.APP_URL,webhookUrl:process.env.APP_URL+'/api/ramp/webhook'};
+    return (await c.query('INSERT INTO cfk_ramps(id,user_id,wallet,direction,session_id,gross_cents,platform_fee_cents,net_cents,checkout_id,quote) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *',[id,user.id,body.wallet,body.direction,body.sessionId,fee.grossCents,fee.platformFeeCents,fee.netCents,body.checkoutId,{provider:'adapter',adapterBase:providerBase(),intent,request}])).rows[0];
+  });
+  if(['completed','failed','review_required'].includes(row.status))return {provider:'adapter',rampId:row.id,direction:row.direction,existingPayment:true};
+  if(row.provider_id)return adapterCheckout(row);
+  // Older created rows already have a merchant reference. Reuse it rather than
+  // orphaning a provider session that may exist after an interrupted response.
+  const request=row.quote?.request||{idempotencyKey:row.id,merchantReference:row.id,direction:row.direction,wallet:row.wallet,asset:'SOL',network:'solana',currency:'USD',grossCents:Number(row.gross_cents),platformFeeBps:1500,platformFeeCents:Number(row.platform_fee_cents),embed:true,returnUrl:process.env.APP_URL,webhookUrl:process.env.APP_URL+'/api/ramp/webhook'};
+  const quote=await providerRequest('/sessions',request);
+  const expected=feeBreakdown(Number(row.gross_cents),quote.providerFeeCents);
+  let url;try{url=new URL(quote.checkoutUrl||'');}catch{throw appError('The payment provider could not confirm the embedded checkout.',502);}
   const origins=(process.env.RAMP_ALLOWED_ORIGINS||'').split(',').map(s=>s.trim());
-  if(!quote.id||quote.grossCents!==fee.grossCents||quote.platformFeeCents!==expected.platformFeeCents||quote.netCents!==expected.netCents||url.protocol!=='https:'||!origins.includes(url.origin)||quote.embeddable!==true)throw appError('The payment provider could not confirm the amount, fees, or embedded checkout.',502);
-  await database().query("UPDATE cfk_ramps SET provider_id=$2,provider_fee_cents=$3,net_cents=$4,quote=$5,status='pending' WHERE id=$1",[id,quote.id,expected.providerFeeCents,expected.netCents,{...quote,intent:body.direction==='onramp'&&body.intent==='buy'?'buy':'withdraw'}]);
-  return {rampId:id,providerName:process.env.RAMP_PROVIDER_NAME||'Payment provider',checkoutUrl:url.toString(),...expected};
+  if(!quote.id||quote.grossCents!==Number(row.gross_cents)||quote.platformFeeCents!==expected.platformFeeCents||quote.netCents!==expected.netCents||url.protocol!=='https:'||!origins.includes(url.origin)||quote.embeddable!==true)throw appError('The payment provider could not confirm the amount, fees, or embedded checkout.',502);
+  const updated=(await database().query("UPDATE cfk_ramps SET provider_id=$2,provider_fee_cents=$3,net_cents=$4,quote=$5,status='pending' WHERE id=$1 AND status='created' AND (provider_id IS NULL OR provider_id=$2) RETURNING *",[row.id,quote.id,expected.providerFeeCents,expected.netCents,{...quote,provider:'adapter',adapterBase:row.quote?.adapterBase||providerBase(),intent,request}])).rows[0];
+  row=updated||(await database().query('SELECT * FROM cfk_ramps WHERE id=$1',[row.id])).rows[0];
+  if(row.provider_id!==quote.id)throw appError('The provider returned conflicting checkout references. Contact support before paying.',409);
+  return ['completed','failed','review_required'].includes(row.status)?{provider:'adapter',rampId:row.id,direction:row.direction,existingPayment:true}:adapterCheckout(row);
 }
+function adapterCheckout(row){
+  return {provider:'adapter',rampId:row.id,direction:row.direction,providerName:process.env.RAMP_PROVIDER_NAME||'Payment provider',checkoutUrl:row.quote?.checkoutUrl,grossCents:Number(row.gross_cents),platformFeeCents:Number(row.platform_fee_cents),providerFeeCents:Number(row.provider_fee_cents),netCents:Number(row.net_cents)};
+}
+
 export async function reconcileRamp(row){
   if(row.quote?.provider==='stripe')return reconcileStripeRamp(row);
+  if(row.quote?.adapterBase&&row.quote.adapterBase!==providerBase())throw appError('This payment uses an earlier payment connection. Contact support to check its status.',503);
   if(row.status==='completed')return {status:'completed',direction:row.direction};
   if(!row.provider_id)return {status:row.status};
   const payment=await providerRequest('/sessions/'+encodeURIComponent(row.provider_id));
@@ -52,7 +78,7 @@ export async function reconcileRamp(row){
   });
   return {status:'completed',direction:row.direction};
 }
-export async function rampStatus(user,id){const row=(await database().query('SELECT * FROM cfk_ramps WHERE id=$1 AND user_id=$2',[id,user.id])).rows[0];if(!row)throw appError('Payment not found.',404);return row.quote?.provider==='stripe'?reconcileStripeRamp(row,{includeCheckout:true}):reconcileRamp(row);}
+export async function rampStatus(user,id){const row=(await database().query('SELECT * FROM cfk_ramps WHERE id=$1 AND user_id=$2',[id,user.id])).rows[0];if(!row)throw appError('Payment not found.',404);if(row.quote?.provider==='stripe')return reconcileStripeRamp(row,{includeCheckout:true});const result=await reconcileRamp(row);return result.status==='pending'&&row.provider_id?{...adapterCheckout(row),...result}:result;}
 export async function rampWebhook(req,raw){
   if(!checkWebhook(raw,req.headers['x-cfk-timestamp'],req.headers['x-cfk-signature'],process.env.RAMP_WEBHOOK_SECRET))throw appError('Invalid webhook signature.',401);
   let body;try{body=JSON.parse(raw);}catch{throw appError('Invalid webhook.');}

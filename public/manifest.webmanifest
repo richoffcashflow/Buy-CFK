@@ -1,0 +1,25 @@
+{
+  "id": "/",
+  "name": "Buy CFK",
+  "short_name": "Buy CFK",
+  "description": "Your Cashflowkey account, balance, and coin activity.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fbfcfd",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/assets/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/cfk-coin.png",
+      "sizes": "500x500",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
