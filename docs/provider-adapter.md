@@ -24,6 +24,8 @@ The adapter must support embedded on-ramp and off-ramp checkout, the exact walle
 }
 ```
 
+The app persists a merchant reference and request before contacting the adapter. Repeated or concurrent requests with the same `idempotencyKey` must return the same original checkout, including after a network timeout. Document the provider's idempotency retention and recovery contract before activation; never treat an uncertain response as permission to create a second charge. An existing checkout cannot silently move between adapters or Stripe.
+
 Return an `id`, HTTPS `checkoutUrl`, `embeddable: true`, and integer `grossCents`, `platformFeeCents`, `providerFeeCents`, `netCents`. All amounts must reconcile. Checkout origins must match `RAMP_ALLOWED_ORIGINS`. For off-ramp, the provider must support a user-authorized transfer from the Privy wallet into its payout flow; implement and verify that wallet transfer integration before enabling withdrawals. The app does not autonomously transfer funds to a provider.
 
 `GET /sessions/{id}` is the authoritative receipt. For `status: "completed"`, return the same `merchantReference`, `wallet`, `direction`, `currency`, amounts, and `platformFeeSettled: true`. On-ramp also requires `asset: "SOL"`, positive integer-string `deliveredLamports`, and `settlementReference`; off-ramp requires `payoutReference`. Completion must mean irrevocably confirmed delivery/payout and earned merchant fee, not checkout created, authorization, pending settlement, or user redirect. Rejected or unsettled receipts must never report completed.

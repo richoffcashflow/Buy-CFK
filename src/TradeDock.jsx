@@ -19,9 +19,10 @@ export default function TradeDock({amount, setAmount, onBuy, onSell, onCustom, b
         <button aria-pressed={custom} onClick={onCustom}>{custom ? formatMoney(Number(amount)) : 'Other'}</button>
       </div>
       <div className={'trade-buttons'+(canSell?'':' buy-only')}>
-        {canSell&&<button className="primary sell" disabled={busy} onClick={onSell}>Sell</button>}
-        <button className="primary buy" disabled={!Number(amount) || busy} onClick={onBuy}>Buy {formatMoney(Number(amount), false).replace('.00', '')} of CFK <span aria-hidden="true">→</span></button>
+        {canSell&&<button className="primary sell" disabled={busy||openingSignIn} onClick={onSell}>Sell</button>}
+        <button className="primary buy" disabled={!Number(amount) || busy || openingSignIn} onClick={onBuy}>Buy CFK with {formatMoney(Number(amount), false).replace('.00', '')} <span aria-hidden="true">→</span></button>
       </div>
+      <p className="dock-fee-note">15% platform fee plus payment and network costs apply.</p>
       {openingSignIn && <p className="sign-in-progress" role="status">Opening secure sign-in…</p>}
     </div>
   </section>;

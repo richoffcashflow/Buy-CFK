@@ -57,8 +57,10 @@ export async function createStripeRamp(user,body){
   // parameters and the same Stripe idempotency key even after network timeouts.
   let row=await transaction(async c=>{
     await c.query('SELECT pg_advisory_xact_lock(hashtext($1))',[user.id+':'+body.checkoutId]);
-    const existing=(await c.query("SELECT * FROM cfk_ramps WHERE user_id=$1 AND checkout_id=$2 AND quote->>'provider'='stripe' ORDER BY created_at LIMIT 1",[user.id,body.checkoutId])).rows[0];
-    if(existing){if(existing.wallet!==body.wallet||Number(existing.gross_cents)!==body.grossCents)throw appError('This checkout already has a different amount. Return to CFK and start a new purchase.',409);return existing;}
+    const matches=(await c.query("SELECT * FROM cfk_ramps WHERE user_id=$1 AND checkout_id=$2 ORDER BY created_at LIMIT 2",[user.id,body.checkoutId])).rows;
+    if(matches.length>1)throw appError('This checkout has multiple previous payment references. Contact support before paying again.',409);
+    const existing=matches[0];
+    if(existing){if(existing.quote?.provider!=='stripe')throw appError('This checkout uses an earlier payment connection. Check your previous payment before starting another.',409);if(existing.wallet!==body.wallet||Number(existing.gross_cents)!==body.grossCents)throw appError('This checkout already has a different amount. Return to CFK and start a new purchase.',409);return existing;}
     const quote=await stripeQuote(body.grossCents),id=randomUUID();
     return (await c.query('INSERT INTO cfk_ramps(id,user_id,wallet,direction,session_id,gross_cents,platform_fee_cents,provider_fee_cents,net_cents,checkout_id,quote) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *',[id,user.id,body.wallet,'onramp',body.sessionId,quote.grossCents,quote.platformFeeCents,quote.providerFeeCents,quote.netCents,body.checkoutId,{provider:'stripe',intent:'buy',sourceCents:quote.sourceCents,feeRecipient:process.env.PLATFORM_FEE_WALLET,authorizedGrossCents:quote.grossCents,createdMode:stripeConfiguration().mode}])).rows[0];
   });

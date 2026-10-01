@@ -8,11 +8,12 @@
   },
   "scripts": {
     "dev": "node scripts/dev.mjs",
-    "build": "node scripts/prepare-stripe-schema.mjs && node scripts/check-stripe.mjs && vite build",
+    "build": "node scripts/build-legal-pages.mjs && node scripts/prepare-stripe-schema.mjs && node scripts/check-stripe.mjs && vite build",
     "check:stripe": "node scripts/check-stripe.mjs",
-    "test": "node --test test/*.test.mjs",
+    "test": "node --test --test-concurrency=1 test/*.test.mjs",
     "db:migrate": "node scripts/migrate.mjs",
-    "worker": "node scripts/worker.mjs"
+    "worker": "node scripts/worker.mjs",
+    "legal:build": "node scripts/build-legal-pages.mjs"
   },
   "dependencies": {
     "@privy-io/react-auth": "^3.3.0",
@@ -29,6 +30,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
+    "jsdom": "^26.1.0",
     "vite": "^7.1.3"
   },
   "overrides": {

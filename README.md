@@ -4,7 +4,7 @@ One simple Cashflowkey coin page for **Free Crypto App LLC**. Blue, black, and w
 
 ## Current status
 
-The implementation builds locally. This is **not a live money service yet**. `TRADING_ENABLED` and `RAMP_ENABLED` default to `false`. Configure the new project's database, Privy app, market data, and approved payment provider before enabling them. An unconfigured integration returns an explicit unavailable message; the page never substitutes invented prices, holders, trades, or purchase conversions.
+The implementation builds locally. `TRADING_ENABLED` and `RAMP_ENABLED` default to `false` in an unconfigured checkout; deployed settings can differ. On October 1, 2026, the production public configuration reported buying enabled and cash withdrawals disabled. This is an observed configuration state, not proof of completed real-money end-to-end verification. Configure the new project's database, Privy app, market data, and approved payment provider before enabling them. An unconfigured integration returns an explicit unavailable message; the page never substitutes invented prices, holders, trades, or purchase conversions.
 
 CFK mint, confirmed by the owner’s Pump.fun link:
 
@@ -85,7 +85,7 @@ The default is Buy $20. A compact blue-and-black Cashflowkey header introduces t
 
 ### Wallet creation and cost controls
 
-Automatic wallet creation is off for both Ethereum and Solana. Browsing and choosing an amount never mount Privy, including for returning funded users. Privy activates only after an explicit sign-in, account action, available Buy action, or payment recovery tap. Pending payments remain saved and offer a recovery button instead of automatically signing in. Cancelling sign-in unmounts the provider. Signing in, viewing a position, and attempting to sell from an empty account do not create wallets.
+Automatic wallet creation is off for both Ethereum and Solana. First-time browsing and choosing an amount do not mount Privy. Returning users who previously signed in can restore their existing Privy session; otherwise Privy activates only after an explicit sign-in, account action, available Buy action, or payment recovery tap. Pending payments remain saved and offer a recovery button instead of automatically signing in. Cancelling sign-in unmounts the provider. Signing in, viewing a position, and attempting to sell from an empty account do not create wallets.
 
 Before creating a Solana funding address, the app checks payment availability and calls the authenticated `/api/ramp/preflight` endpoint to validate the session, amount, and server payment configuration. Only then does it explicitly create the wallet if needed. Concurrent creation attempts share one request, existing wallets are reused, and cancelled attempts can be retried.
 
@@ -107,7 +107,7 @@ The unlinked, no-index `/layout-preview.html` page renders the real app at two m
 
 Sources: [Pump transaction API](https://github.com/pump-fun/pump-fun-skills/tree/main/swap), [Pump.fun protocol IDLs](https://github.com/pump-fun/pump-public-docs), [Solana account queries](https://solana.com/docs/rpc/http/getprogramaccounts).
 
-Sign-in is explicitly available in Telegram as well as the browser, with an email retry if Telegram authentication fails. The app releases its own dialog before opening Privy and keeps transaction dialogs below provider overlays. In Privy, enable **Telegram** itself as well as **seamless Mini App login**; the seamless checkbox alone does not enable Telegram authentication.
+Sign-in is explicitly available in Telegram as well as the browser, with a visible retry if authentication fails. Email sign-in remains a separate provider-configuration rollout. The app releases its own dialog before opening Privy and keeps transaction dialogs below provider overlays. In Privy, enable **Telegram** itself as well as **seamless Mini App login**; the seamless checkbox alone does not enable Telegram authentication.
 
 
 ### Stripe embedded onramp
@@ -128,3 +128,22 @@ Checkout creation is idempotent per payment attempt. The funding wallet is locke
 The 15% platform fee is based on the actual gross fiat payment, converted using the actual funding exchange rate, and transferred to the captured admin address in the **same transaction** as the CFK purchase. The complete transaction is simulated and must fit Solana's size limit. Failed purchases do not collect this fee. The confirmed recipient balance and transfer are checked before recording fee revenue or a Purchase event. Purchase value is earned platform fee revenue, not payment volume. Changing the configured admin wallet does not reroute existing checkouts.
 
 Known activation gate: validate the complete current route with a funded simulation and controlled wallet signing before enabling live funding. Real payment, signing, KYC, and payout flows have not been exercised by the automated fixtures.
+
+
+## October 2026 account recovery and home-screen update
+
+- The coin page includes a direct sign-in button. Returning authenticated sessions and the last valid dollar amount can be restored without starting another payment; wallet creation remains on-demand.
+- Available balance is held in SOL and displayed in USD. When cash withdrawals are disabled, the page and sell review say so before a sale is signed.
+- Sale review shows the amount, estimated proceeds, and price movement allowance. An expired unsigned quote is refreshed for review before signing.
+- Unfinished payment references do not expire after 24 hours or disappear on a generic confirmation conflict. The authenticated `GET /api/account/history` endpoint exposes only the signed-in user's most recent 20 payment/trade records and immutable recovery references. Opening history never initiates a trade.
+- “Add to Home Screen” is optional and only opens installation help or the browser's installation prompt after a tap. The manifest uses existing CFK artwork, standalone display, and a clean `/` start URL. No service worker, offline payment processing, credential cache, or quote cache is installed. Live prices and account actions need an internet connection.
+- Browser-first branded-domain routing and additional sign-in methods are a separate rollout: first verify Privy and Stripe origins and obtain approval for any required security-sensitive configuration changes. Existing Telegram links and authentication identity remain supported.
+
+The test suite includes isolated DOM interaction tests. `npm test` runs tests serially to bound concurrent PostgreSQL/WASM memory use. These fixtures do not exercise live payment, wallet signing, KYC, or provider origin configuration.
+
+
+## Public legal documents
+
+`/privacy` and `/terms` are directly addressable, unauthenticated HTML documents generated from the unchanged `src/Legal.jsx` copy. Explicit Vercel rewrites serve them before the app fallback, so marketing-domain legal visits never enter the Telegram launcher. They include return navigation and require no JavaScript or wallet login.
+
+Run `npm run legal:build` after changing the existing legal source. The build also regenerates these pages, and a regression test checks that the committed static documents match the source. Deploying the files is required before publishing these paths in partner applications; local existence alone does not make a URL live.

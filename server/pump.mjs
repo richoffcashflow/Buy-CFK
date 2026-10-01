@@ -1,4 +1,4 @@
-import {PublicKey,VersionedTransaction,AddressLookupTableAccount} from '@solana/web3.js';
+import {PublicKey,VersionedTransaction,AddressLookupTableAccount,SystemInstruction,SystemProgram,TransactionInstruction} from '@solana/web3.js';
 import {mint,SOL_MINT,appError} from './core.mjs';
 import {appendPlatformFee} from './platform-fee.mjs';
 
@@ -30,6 +30,36 @@ export function validateSwapInstruction(ix,keys,{program,side,wallet,input,cashL
   const first=bytes.readBigUInt64LE(8),second=bytes.readBigUInt64LE(16);
   if(first<=0n||second<=0n||(side==='sell'&&first!==input)||(side==='buy'&&cashLimit&&(kind.exact?first:second)>cashLimit))throw appError('The trade exceeds your selected amount.',502);
 }
+// Only the wallet's own wrapped-SOL funding/account creation may appear as
+// top-level System instructions. Authority, nonce, and arbitrary transfers are
+// never needed for this swap and must not be trusted from an external builder.
+export async function validateSystemRouteInstructions(tx,keys,wallet){
+  const payer=new PublicKey(wallet),wrappedAccounts=new Set([
+    PublicKey.findProgramAddressSync([payer.toBuffer(),new PublicKey(TOKEN_PROGRAM).toBuffer(),new PublicKey(SOL_MINT).toBuffer()],new PublicKey(ATA_PROGRAM))[0].toBase58()
+  ]);
+  const decoded=ix=>new TransactionInstruction({programId:keys.get(ix.programIdIndex),data:Buffer.from(ix.data),keys:[...ix.accountKeyIndexes].map(index=>({pubkey:keys.get(index),isSigner:tx.message.isAccountSigner(index),isWritable:tx.message.isAccountWritable(index)}))});
+  for(const ix of tx.message.compiledInstructions){
+    if(keys.get(ix.programIdIndex)?.toBase58()!==TOKEN_PROGRAM)continue;
+    const bytes=Buffer.from(ix.data),key=n=>keys.get(ix.accountKeyIndexes[n])?.toBase58();
+    const owner=bytes[0]===1?key(2):[16,18].includes(bytes[0])&&bytes.length===33?new PublicKey(bytes.subarray(1)).toBase58():null;
+    if(key(1)===SOL_MINT&&owner===wallet&&key(0)!==wallet)wrappedAccounts.add(key(0));
+  }
+  for(const ix of tx.message.compiledInstructions){
+    if(keys.get(ix.programIdIndex)?.toBase58()!==SystemProgram.programId.toBase58())continue;
+    try{
+      const instruction=decoded(ix),kind=SystemInstruction.decodeInstructionType(instruction);
+      if(kind==='Transfer'){
+        const transfer=SystemInstruction.decodeTransfer(instruction);
+        if(transfer.fromPubkey.toBase58()!==wallet||!wrappedAccounts.has(transfer.toPubkey.toBase58())||transfer.lamports<0n)throw new Error();
+      }else if(kind==='Create'||kind==='CreateWithSeed'){
+        const created=kind==='Create'?SystemInstruction.decodeCreateAccount(instruction):SystemInstruction.decodeCreateWithSeed(instruction);
+        if(created.fromPubkey.toBase58()!==wallet||created.newAccountPubkey.equals(payer)||!wrappedAccounts.has(created.newAccountPubkey.toBase58())||created.programId.toBase58()!==TOKEN_PROGRAM||created.space!==165||!Number.isSafeInteger(created.lamports)||created.lamports<0)throw new Error();
+        if(kind==='CreateWithSeed'&&(!created.basePubkey.equals(payer)||!(await PublicKey.createWithSeed(created.basePubkey,created.seed,created.programId)).equals(created.newAccountPubkey)))throw new Error();
+      }else throw new Error();
+    }catch{throw appError('The trade requested an unsupported account operation.',502);}
+  }
+}
+
 export const curveAddress=()=>PublicKey.findProgramAddressSync([Buffer.from('bonding-curve'),new PublicKey(mint()).toBuffer()],new PublicKey(PUMP_PROGRAM))[0].toBase58();
 export function decodeCurve(account){
   if(account?.owner!==PUMP_PROGRAM||!account.data?.[0])return null;
@@ -70,12 +100,17 @@ export async function pumpTransaction({wallet,side,input,decimals,slippageBps=10
   if(tx.message.header.numRequiredSignatures!==1||tx.message.staticAccountKeys[0].toBase58()!==wallet)throw appError('The trade does not match your account.',502);
   const tables=[];
   for(const lookup of tx.message.addressTableLookups||[]){const a=(await rpc('getAccountInfo',[lookup.accountKey.toBase58(),{encoding:'base64',commitment:'confirmed'}])).value;if(!a)throw appError('The trade route could not be verified.',502);tables.push(new AddressLookupTableAccount({key:lookup.accountKey,state:AddressLookupTableAccount.deserialize(Buffer.from(a.data[0],'base64'))}));}
-  const keys=tx.message.getAccountKeys({addressLookupTableAccounts:tables});let hasPump=false;
+  const keys=tx.message.getAccountKeys({addressLookupTableAccounts:tables});
+  await validateSystemRouteInstructions(tx,keys,wallet);
+  let hasPump=false;
   for(const ix of tx.message.compiledInstructions){
     const program=keys.get(ix.programIdIndex)?.toBase58();
     if(!allowedPrograms.has(program))throw appError('This trade route is not supported yet.',503);
     if(program===PUMP_PROGRAM||program===PUMP_AMM){validateSwapInstruction(ix,keys,{program,side,wallet,input,cashLimit});hasPump=true;}
-    if([TOKEN_PROGRAM,TOKEN_2022].includes(program)&&![1,9,16,17,18,22].includes(ix.data[0]))throw appError('The trade requested an unsupported token permission.',502);
+    if([TOKEN_PROGRAM,TOKEN_2022].includes(program)){
+      if(![1,9,16,17,18,22].includes(ix.data[0]))throw appError('The trade requested an unsupported token permission.',502);
+      if(ix.data[0]===9&&(keys.get(ix.accountKeyIndexes[1])?.toBase58()!==wallet||keys.get(ix.accountKeyIndexes[2])?.toBase58()!==wallet))throw appError('The trade requested an unsupported account operation.',502);
+    }
   }
   if(!hasPump||!Array.from({length:keys.length},(_,i)=>keys.get(i).toBase58()).includes(mint()))throw appError('The trade does not match CFK.',502);
   const mintAccount=(await rpc('getAccountInfo',[mint(),{encoding:'base64',commitment:'confirmed'}])).value;
@@ -89,6 +124,7 @@ export async function pumpTransaction({wallet,side,input,decimals,slippageBps=10
   if(simulated.value?.err||!simulated.value?.accounts?.[0])throw appError('This trade cannot complete right now. Try a smaller amount.',409);
   const tokenAmount=a=>a?.data?.[0]?Buffer.from(a.data[0],'base64').readBigUInt64LE(64):0n;
   const after=simulated.value.accounts;
+  if(before[0]?.owner!==SystemProgram.programId.toBase58()||after[0]?.owner!==before[0].owner)throw appError('The trade would change your account permissions.',502);
   const tokenDelta=tokenAmount(after[1])-tokenAmount(before[1]);
   const cashDelta=BigInt(after[0].lamports)-BigInt(before[0]?.lamports||0);
   const feeLamports=platformFee?BigInt(platformFee.lamports):0n;
