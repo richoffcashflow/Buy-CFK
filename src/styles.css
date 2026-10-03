@@ -66,7 +66,7 @@ h2 { margin: 0; font-size: 21px; letter-spacing: -.65px; font-weight: 850; }
 .inspected-time small { font-size: 10px; color: var(--muted); font-weight: 500; }
 .chart { margin-top: 13px; position: relative; }
 .chart-stage { position: relative; padding-right: 67px; }
-.chart-plot { position: relative; height: 230px; touch-action: none; user-select: none; cursor: crosshair; }
+.chart-plot { position: relative; height: 230px; touch-action: pan-y pinch-zoom; user-select: none; cursor: crosshair; }
 .chart-plot > svg { width: 100%; height: 100%; overflow: visible; display: block; pointer-events: none; }
 .chart-dot { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: var(--blue); border: 2px solid #fff; box-shadow: 0 0 0 3px #1683f824; transform: translate(-50%, -50%); pointer-events: none; }
 .chart-axis { position: absolute; top: -5px; bottom: -5px; right: 0; width: 60px; display: flex; flex-direction: column; justify-content: space-between; color: #9397a1; font-size: 9px; font-weight: 650; font-variant-numeric: tabular-nums; }
@@ -168,6 +168,9 @@ footer .install-help button { min-height: 36px; font-weight: 700; color: var(--b
 .coin-identity { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 14px; padding: 18px 20px; }
 .coin-identity-main { gap: 12px; }
 .coin-identity h1 { font-size: 21px; }
+.coin-symbol { display: inline-flex; align-items: center; gap: 6px; }
+.official-badge { display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; border-radius: 50%; background: #1683f8; color: #fff; }
+.official-badge svg { width: 12px; height: 12px; stroke-width: 3; }
 .coin-identity .brand-tagline { grid-column: 1; margin: 0; font-size: 14px; }
 .coin-identity .token-address-link { grid-column: 2; grid-row: 1 / 3; align-self: center; padding: 10px 0 10px 8px; font-size: 13px; }
 .inline-amount { display: flex; align-items: center; min-width: 0; padding: 0 10px; gap: 2px; border: 1px solid #dce3ed; border-radius: 12px; background: #f7f8fa; color: #647083; }
@@ -185,8 +188,8 @@ footer .install-help button { min-height: 36px; font-weight: 700; color: var(--b
 .legacy-recovery { margin-top: 14px; color: #52667e; font-size: 13px; }
 .legacy-recovery summary { cursor: pointer; padding: 10px 0; }
 .connection-notice button { border: 0; background: none; color: #075aaf; text-decoration: underline; padding: 8px; font-weight: 700; }
-.creator-socials { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
-.creator-socials a { flex-direction: row; font-size: 14px; min-height: 48px; }
+.creator-socials { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.creator-socials a { flex-direction: row; gap: 6px; font-size: 12px; min-height: 48px; }
 @media (max-width: 400px) {
   .coin-identity { padding: 14px; gap: 7px 8px; }
   .coin-identity h1 { font-size: 18px; letter-spacing: -.5px; }

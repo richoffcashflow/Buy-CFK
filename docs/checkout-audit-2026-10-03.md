@@ -13,9 +13,13 @@ The requested experience is the BuyCFK website: choose an amount, press Buy, pay
 | A slow email login could be interrupted by the app timeout | Keep provider-loading timeouts, but let the user finish email authentication. |
 | Network requests could remain pending indefinitely or treat an HTML response as success | Bound API requests, reject malformed responses, and never automatically retry payment POST requests. |
 | A position below $20 could not use the default Sell selection | Clamp the initial sale amount to the current position value and preserve explicit sale confirmation. |
-| A refresh during guest connection lost the selected purchase | Preserve only the explicit amount/intent in tab storage for ten minutes. Existing payment recovery remains durable. |
+| A refresh during guest connection lost the selected purchase | Preserve the chosen amount in tab storage for ten minutes, then wait for a fresh Buy tap. Existing payment recovery remains durable. |
 | Price refresh failures were silent | Label stale prices and provide a retry for checkout configuration failures. |
 | Email upgrade failure could make Retry do nothing | Retry the email upgrade on the existing guest session without creating another payment. |
+| The chart captured vertical touch gestures | Permit vertical page scrolling and pinch zoom while retaining horizontal price inspection. |
+| Returning users could have checkout opened automatically | Restore accounts quietly, keep payment recovery behind Continue, and poll checkout only while its dialog is open. |
+
+The follow-up adds a blue Official CFK checkmark beside the coin symbol and Instagram, TikTok, and YouTube links at the bottom. Social destinations were cross-checked against [the creator's Linktree](https://linktr.ee/cashflowkey); its TikTok destination is `@cashflowkey`. The badge identifies this project's official token; it does not assert third-party endorsement.
 
 ## Wallet and payment boundaries
 
@@ -28,7 +32,7 @@ The requested experience is the BuyCFK website: choose an amount, press Buy, pay
 
 ## Verification and release status
 
-All 55 tests pass and `npm run build` succeeds locally. Automated DOM tests exercise amount selection, guest connection, payment verification, automatic coin purchase, account upgrade/retry, refresh recovery, disabled guest checkout, sale review, and older payment recovery. Payment, Privy, and chain responses in these tests are fixtures, not live transactions. Existing server tests cover authentic payment signatures, fee accounting, duplicate settlement, and confirmed trade idempotence.
+All 56 tests pass and `npm run build` succeeds locally. Automated DOM tests exercise amount selection, guest connection, payment verification, automatic coin purchase, account upgrade/retry, quiet refresh/account restoration, deliberate payment recovery, disabled guest checkout, sale review, and older payment recovery. Payment, Privy, and chain responses in these tests are fixtures, not live transactions. Existing server tests cover authentic payment signatures, fee accounting, duplicate settlement, and confirmed trade idempotence.
 
 Vercel preview `cfk-iyn708fc6-cashflowkey.vercel.app` built successfully from commit `ec8c6f4`. Browser checks confirmed desktop rendering, inline custom amount entry, and the 375 × 667 layout with no horizontal overflow. Preview configuration reports buying and guest checkout disabled, so verification stopped before creating an identity or payment. The browser console showed extension-origin metadata errors, but no application-origin errors during these checks.
 

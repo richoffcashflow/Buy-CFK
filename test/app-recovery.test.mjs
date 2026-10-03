@@ -236,18 +236,36 @@ test('disabled guest checkout creates no identity, wallet or payment session',as
   }finally{await f.close();}
 });
 
-test('refreshing an explicit checkout intent retains its amount and starts it once',async()=>{
+test('refreshing a checkout intent keeps its amount but waits for another Buy tap',async()=>{
   const f=await fixture({buyEnabled:true,guestCheckoutEnabled:true,purchaseIntent:{side:'buy',amountUsd:37.25,savedAt:Date.now()},responses:{
     '/api/ramp/preflight':()=>({ready:true}),
     '/api/ramp/session':()=>({rampId:'resumed',direction:'onramp',checkoutUrl:'https://checkout.invalid/',grossCents:3725})
   }});
   try{
+    assert.equal(globalThis.cfkWalletProps,undefined);
+    assert.equal(document.querySelector('[aria-modal="true"]'),null);
+    assert.equal(f.requests.filter(r=>/ramp|trade/.test(r.url)).length,0);
+    await f.click('Buy $37.25 of CFK');
     assert.equal(globalThis.cfkWalletProps.loginMethod,'guest');
     await act(async()=>globalThis.cfkWalletProps.onReady(f.bridge));
     const requests=f.requests.filter(r=>r.url==='/api/ramp/session');
     assert.equal(requests.length,1);
     assert.equal(JSON.parse(requests[0].body).grossCents,3725);
     assert.equal(sessionStorage.getItem('cfk_purchase_intent'),null);
+  }finally{await f.close();}
+});
+
+test('restoring an account leaves an unfinished payment closed until Continue is tapped',async()=>{
+  const f=await fixture({pending:{type:'payment',rampId:'saved-payment',userId:'test-user'},responses:{
+    '/api/ramp/status?id=saved-payment':()=>({status:'pending',direction:'onramp'})
+  }});
+  try{
+    await f.signIn();
+    assert.equal(document.querySelector('[aria-modal="true"]'),null);
+    assert.ok(!f.requests.some(r=>/ramp|trade/.test(r.url)));
+    await f.click('Continue payment or trade');
+    assert.ok(f.requests.some(r=>r.url==='/api/ramp/status?id=saved-payment'));
+    assert.ok(document.querySelector('[aria-modal="true"]'));
   }finally{await f.close();}
 });
 

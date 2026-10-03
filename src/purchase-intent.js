@@ -6,8 +6,8 @@ export function validAmount(value) {
     Number(value) >= .01 && Number(value) <= 1000000;
 }
 
-// Retain only an explicit Buy tap in this tab, for ten minutes.
-// This is a checkout instruction, never proof of identity or payment.
+// Retain the amount from an explicit Buy tap in this tab for ten minutes.
+// After refresh, the app still waits for a new Buy tap. This is not payment proof.
 export function readPurchaseIntent(store, now=Date.now()) {
   try {
     const action = JSON.parse(store.get(PURCHASE_INTENT_KEY) || 'null');
