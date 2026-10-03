@@ -163,3 +163,34 @@ footer .install-button { min-height: 44px; padding: 10px 18px; border: 1px solid
 .install-help p { font-size: 12px; }
 footer .install-help button { min-height: 36px; font-weight: 700; color: var(--blue-dark); }
 .connection-notice { padding: 12px; background: #fff8e8; color: #76500f; border-radius: 12px; font-size: 13px; line-height: 1.5; }
+
+/* Put the coin and the action in the first viewport. */
+.coin-identity { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 14px; padding: 18px 20px; }
+.coin-identity-main { gap: 12px; }
+.coin-identity h1 { font-size: 21px; }
+.coin-identity .brand-tagline { grid-column: 1; margin: 0; font-size: 14px; }
+.coin-identity .token-address-link { grid-column: 2; grid-row: 1 / 3; align-self: center; padding: 10px 0 10px 8px; font-size: 13px; }
+.inline-amount { display: flex; align-items: center; min-width: 0; padding: 0 10px; gap: 2px; border: 1px solid #dce3ed; border-radius: 12px; background: #f7f8fa; color: #647083; }
+.inline-amount.selected, .inline-amount:focus-within { border-color: var(--blue); background: var(--blue-light); color: var(--blue-dark); }
+.inline-amount input { width: 100%; min-width: 0; min-height: 44px; padding: 0; border: 0; outline: none; background: transparent; color: inherit; font-size: 16px; font-weight: 750; }
+.inline-amount input::placeholder { color: #647083; opacity: 1; }
+.inline-amount:focus-within { outline: 3px solid #79b9ff; outline-offset: 2px; }
+.amount-error, .market-warning { font-size: 13px; line-height: 1.5; color: #8d411d; margin: 8px 0; }
+.amount-heading > span { font-size: 12px; }
+.dock-fee-note { font-size: 12px; }
+.trade-buttons .buy { justify-content: center; }
+.save-account { margin-top: 18px; padding: 16px; border: 1px solid #c7e2ff; border-radius: 16px; background: var(--blue-light); }
+.save-account h3 { font-size: 18px; margin: 0 0 8px; }
+.save-account p { font-size: 14px; line-height: 1.5; color: #475e78; margin: 0 0 12px; }
+.legacy-recovery { margin-top: 14px; color: #52667e; font-size: 13px; }
+.legacy-recovery summary { cursor: pointer; padding: 10px 0; }
+.connection-notice button { border: 0; background: none; color: #075aaf; text-decoration: underline; padding: 8px; font-weight: 700; }
+.creator-socials { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
+.creator-socials a { flex-direction: row; font-size: 14px; min-height: 48px; }
+@media (max-width: 400px) {
+  .coin-identity { padding: 14px; gap: 7px 8px; }
+  .coin-identity h1 { font-size: 18px; letter-spacing: -.5px; }
+  .coin-identity .token-address-link { font-size: 12px; }
+  .inline-amount { padding: 0 6px; }
+  .dock-fee-note { font-size: 12px; }
+}

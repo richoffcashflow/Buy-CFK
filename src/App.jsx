@@ -9,16 +9,14 @@ import TradeDock from './TradeDock.jsx';
 import StripeCheckout from './StripeCheckout.jsx';
 import {walletForAction} from './wallet-lifecycle.js';
 import {readPending as loadPending,pendingTrade,savedAmount} from './pending-state.js';
-const Wallet=lazy(()=>import('./Wallet.jsx'));
+import {PURCHASE_INTENT_KEY,readPurchaseIntent,validAmount} from './purchase-intent.js';
+const loadWallet=()=>import('./Wallet.jsx');
+const Wallet=lazy(loadWallet);
+const warmWallet=()=>{loadWallet().catch(()=>{});};
 const MINT='3Rcko4DWwbLQP6vZ2Juxy3gDbv3omNkeg5np17fbpump';
 const CREATOR_SOCIALS=[
   {name:'YouTube',icon:'youtube',url:'https://www.youtube.com/@cashflowkeyy'}
 ];
-function openSocial(event,url){
-  const tg=window.Telegram?.WebApp;
-  if(!tg?.initData||!tg.openLink||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;
-  try{tg.openLink(url);event.preventDefault();}catch{}
-}
 const remember={get:k=>{try{return sessionStorage.getItem(k);}catch{return null;}},set:(k,v)=>{try{sessionStorage.setItem(k,v);}catch{}},remove:k=>{try{sessionStorage.removeItem(k);}catch{}}};
 const durable={get:k=>{try{return localStorage.getItem(k);}catch{return null;}},set:(k,v)=>{try{localStorage.setItem(k,v);}catch{}},remove:k=>{try{localStorage.removeItem(k);}catch{}}};
 const PENDING_LIFETIME=24*60*60*1000;
@@ -45,15 +43,15 @@ function Modal({title,children,onClose}){
 }
 export default function App(){
   const [config,setConfig]=useState(null),[market,setMarket]=useState(null),[points,setPoints]=useState([]),[activity,setActivity]=useState(null);
-  const [inspected,setInspected]=useState(null),[chartLoading,setChartLoading]=useState(true),[historyStart,setHistoryStart]=useState(null),[customAmount,setCustomAmount]=useState('20'),[loginMethod,setLoginMethod]=useState(null);
-  const [range,setRange]=useState('1d'),[amount,setAmount]=useState(()=>savedAmount(durable)),[position,setPosition]=useState(null),[notice,setNotice]=useState('');
+  const [inspected,setInspected]=useState(null),[chartLoading,setChartLoading]=useState(true),[historyStart,setHistoryStart]=useState(null),[loginMethod,setLoginMethod]=useState(()=>readPurchaseIntent(remember)?'guest':'email');
+  const [range,setRange]=useState('1d'),[amount,setAmount]=useState(()=>{const action=readPurchaseIntent(remember);return action?String(action.amountUsd):savedAmount(durable);}),[position,setPosition]=useState(null),[notice,setNotice]=useState(''),[configError,setConfigError]=useState(false),[marketError,setMarketError]=useState(false),[isGuest,setIsGuest]=useState(false);
   const [modal,setModal]=useState(null),[flow,setFlow]=useState({step:'idle'}),[intent,setIntent]=useState(()=>{const p=readPending();return p?.direction==='offramp'?'withdraw':p?.side==='sell'?'sell':'buy';});
   const [consent,setConsentState]=useState(getConsent()),[chartMessage,setChartMessage]=useState('Loading price history…');
-  // Telegram restores the account in the background. Privy wallet creation
-  // remains deferred until a funded buy is actually prepared.
-  const [walletActive,setWalletActive]=useState(()=>Boolean(window.Telegram?.WebApp?.initData||durable.get('cfk_account_seen')==='1'));
-  const [activation,setActivation]=useState(0),[account,setAccount]=useState(null),[busy,setBusy]=useState(false),[history,setHistory]=useState(null),[historyError,setHistoryError]=useState(false),[online,setOnline]=useState(()=>navigator.onLine!==false);
-  const bridgeRef=useRef(null),lock=useRef(false),queuedAction=useRef(null),pendingRef=useRef(readPending());
+  // Browsing never creates an account or wallet. Restore only an existing session
+  // or an explicit, recent Buy request that was interrupted by a page refresh.
+  const [walletActive,setWalletActive]=useState(()=>Boolean(readPurchaseIntent(remember)||durable.get('cfk_account_seen')==='1'));
+  const [activation,setActivation]=useState(()=>readPurchaseIntent(remember)?1:0),[account,setAccount]=useState(null),[busy,setBusy]=useState(false),[history,setHistory]=useState(null),[historyError,setHistoryError]=useState(false),[online,setOnline]=useState(()=>navigator.onLine!==false);
+  const bridgeRef=useRef(null),lock=useRef(false),queuedAction=useRef(readPurchaseIntent(remember)),pendingRef=useRef(readPending());
   const savePending=data=>{
     const saved=data?{...data,userId:bridgeRef.current?.userId,savedAt:Date.now()}:null;
     pendingRef.current=saved;
@@ -63,15 +61,14 @@ export default function App(){
   const setLock=value=>{lock.current=value;setBusy(value);};
   const refreshHistory=useCallback(async()=>{const b=bridgeRef.current;if(!b)return;try{const result=await api('/account/history',{token:await b.getAccessToken()});if(bridgeRef.current?.userId===b.userId){setHistory(result.items||[]);setHistoryError(false);}}catch{setHistoryError(true);}},[]);
   const refreshPosition=useCallback(async()=>{const b=bridgeRef.current;if(!b)return null;if(!b.address){setPosition({valueUsd:0,tokens:0,availableUsd:0});return null;}try{const next=await api('/position?wallet='+b.address);if(bridgeRef.current?.userId!==b.userId)return null;setPosition(next);if(next.tokens>0)setFlow(current=>current.step==='complete'&&current.side==='buy'&&!current.positionUpdated?{...current,positionUpdated:true}:current);return next;}catch{return null;}},[]);
-  useEffect(()=>{durable.set('cfk_amount',amount);},[amount]);
+  useEffect(()=>{if(validAmount(amount))durable.set('cfk_amount',amount);},[amount]);
+  const refreshConfig=useCallback(async()=>{setConfigError(false);try{const c=await api('/config');setConfig(c);getSession().then(()=>track('ViewContent',{trigger:'coin_page'},c)).catch(()=>{});}catch{setConfigError(true);}},[]);
   useEffect(()=>{const update=()=>setOnline(navigator.onLine!==false);window.addEventListener('online',update);window.addEventListener('offline',update);return()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update);};},[]);
   useEffect(()=>{
-    const tg=window.Telegram?.WebApp;tg?.ready();tg?.expand();try{tg?.setHeaderColor('#ffffff');tg?.setBackgroundColor('#ffffff');}catch{}
-    if(tg?.initData)setWalletActive(true);
-    captureAttribution();api('/config').then(c=>{setConfig(c);getSession().then(()=>track('ViewContent',{trigger:'coin_page'},c)).catch(()=>{});}).catch(()=>setNotice('Please refresh to reconnect.'));
-  },[]);
+    captureAttribution();refreshConfig();
+  },[refreshConfig]);
   useEffect(()=>{
-    let alive=true;const refresh=()=>{api('/market').then(d=>{if(alive)setMarket(d);}).catch(()=>{});api('/activity').then(d=>{if(alive)setActivity(d);}).catch(()=>{if(alive)setActivity({items:[],unavailable:true});});};
+    let alive=true;const refresh=()=>{api('/market').then(d=>{if(alive){setMarket(d);setMarketError(false);}}).catch(()=>{if(alive)setMarketError(true);});api('/activity').then(d=>{if(alive)setActivity(d);}).catch(()=>{if(alive)setActivity({items:[],unavailable:true});});};
     refresh();const timer=setInterval(()=>{if(!document.hidden)refresh();},30000);return()=>{alive=false;clearInterval(timer);};
   },[]);
   useEffect(()=>{
@@ -81,29 +78,36 @@ export default function App(){
   useEffect(()=>{refreshHistory();},[account,refreshHistory]);
   useEffect(()=>{refreshPosition();const t=setInterval(()=>{if(!document.hidden)refreshPosition();},20000);return()=>clearInterval(t);},[account,refreshPosition]);
   useEffect(()=>{if(!notice)return;const t=setTimeout(()=>setNotice(''),6000);return()=>clearTimeout(t);},[notice]);
-  const onReady=useCallback(bridge=>{durable.set('cfk_account_seen','1');const previous=bridgeRef.current;if(previous?.userId!==bridge.userId){setHistory(null);setPosition(null);}bridgeRef.current=bridge;if(pendingRef.current?.userId&&pendingRef.current.userId!==bridge.userId){savePending(null);setFlow({step:'idle'});setModal(null);}setAccount(bridge.userId);if(previous&&previous.address!==bridge.address)refreshPosition();},[refreshPosition]);
+  const onReady=useCallback(bridge=>{durable.set('cfk_account_seen','1');const previous=bridgeRef.current;if(previous?.userId!==bridge.userId){setHistory(null);setPosition(null);}bridgeRef.current=bridge;setIsGuest(Boolean(bridge.isGuest));if(pendingRef.current?.userId&&pendingRef.current.userId!==bridge.userId){savePending(null);setFlow({step:'idle'});setModal(null);}setAccount(bridge.userId);if(previous&&previous.address!==bridge.address)refreshPosition();},[refreshPosition]);
   const onError=useCallback(message=>{setFlow({step:'auth-error',message});setModal('transaction');},[]);
-  const onCancelSignIn=useCallback(()=>{queuedAction.current=null;setFlow({step:'idle'});setModal(null);setWalletActive(false);},[]);
-  function signIn(method=null){setLoginMethod(method);setModal(null);setFlow({step:'sign-in'});setWalletActive(true);setActivation(n=>n+1);}
+  const onCancelSignIn=useCallback(()=>{queuedAction.current=null;remember.remove(PURCHASE_INTENT_KEY);setFlow({step:'idle'});setModal(null);setWalletActive(Boolean(bridgeRef.current));},[]);
+  function signIn(method='email'){setLoginMethod(method);setModal(method==='guest'?'transaction':null);setFlow({step:method==='guest'?'guest-connect':'sign-in'});setWalletActive(true);setActivation(n=>n+1);}
   function begin(side,override){
-    if(lock.current)return;
+    if(lock.current||queuedAction.current)return;
     if(!online){setNotice('You’re offline. Reconnect before buying, selling, or checking a payment.');return;}
     setIntent(side);
     setModal('transaction');
     if(pendingRef.current){setFlow({step:'pending',message:'Your previous payment or trade is still being checked.'});if(bridgeRef.current)resume();else signIn();return;}
     const selected=override??Number(amount);
-    if(!Number.isFinite(selected)||selected<=0){setFlow({step:'blocked',message:'Choose an amount greater than $0.'});return;}
+    if(!validAmount(String(selected))){setFlow({step:'blocked',message:'Choose an amount between $0.01 and $1,000,000, with no more than two decimal places.'});return;}
     if(side==='sell'&&position&&!(position.tokens>0)){setFlow({step:'blocked',message:'You do not have any CFK to sell yet. Buy CFK first, then you can sell it here.'});return;}
     if(!config?.privyAppId){setFlow({step:'blocked',message:'Buying and selling are being connected. No payment has been taken.'});return;}
     if(side==='buy'&&config.checkout?.buyEnabled!==true){setFlow({step:'blocked',message:'Buying is temporarily unavailable. No payment has been taken. You can still sign in to check your position or an earlier payment.'});return;}
     if(side==='withdraw'&&config.checkout?.withdrawEnabled!==true){setFlow({step:'blocked',message:'Cash withdrawals are not available yet. Sale proceeds remain in your account as SOL, whose dollar value can change.'});return;}
     if(side==='buy')track('AddToCart',{trigger:'buy_pressed'},config).catch(()=>{});
     queuedAction.current={side,amountUsd:selected};
-    if(!bridgeRef.current){signIn();return;}
+    if(!bridgeRef.current){
+      if(side==='buy'){
+        if(config.guestCheckoutEnabled!==true){queuedAction.current=null;setFlow({step:'blocked',message:'Guest checkout is not available yet. No payment has been taken.'});return;}
+        remember.set(PURCHASE_INTENT_KEY,JSON.stringify({...queuedAction.current,savedAt:Date.now()}));signIn('guest');
+      }else signIn();
+      return;
+    }
     setFlow({step:'idle'});
     if(bridgeRef.current){const action=queuedAction.current;queuedAction.current=null;prepare(action);}
   }
   async function prepare(action){
+    remember.remove(PURCHASE_INTENT_KEY);
     if(!online){setNotice('Reconnect before continuing. Your payment reference is saved.');return;}
     if(lock.current||!bridgeRef.current)return;setLock(true);setModal('transaction');setFlow({step:'loading'});
     try{
@@ -192,26 +196,28 @@ export default function App(){
   }
   function chooseConsent(value){setConsent(value);setConsentState(getConsent());track('ViewContent',{trigger:'coin_page'},config).catch(()=>{});if(modal==='measurement')setModal(null);}
   async function copyMint(){try{await navigator.clipboard.writeText(config?.mint||MINT);setNotice('Token address copied.');}catch{setNotice('Select the address to copy it.');}}
-  const close=()=>{if(lock.current)return;queuedAction.current=null;setModal(null);};
+  const close=()=>{if(lock.current)return;queuedAction.current=null;remember.remove(PURCHASE_INTENT_KEY);setModal(null);};
+  const saveAccount=()=>{setLoginMethod('upgrade');setModal(null);bridgeRef.current?.upgrade?.();};
   const change=market?.change24h,changeText=change!=null?(change>=0?'+':'')+change.toFixed(2)+'%':'—';
   return <>
     <main className="app">
       {!online&&<p className="connection-notice" role="status">You’re offline. Displayed prices may be out of date. Reconnect to use your account.</p>}
+      {configError&&<div className="connection-notice" role="status">Checkout could not connect. <button onClick={refreshConfig}>Retry connection</button></div>}
       <header className="coin-identity">
         <div className="coin-identity-main"><img src="/assets/cfk-coin.png" width="48" height="48" alt="Cashflow"/><div><h1>CASHFLOWKEY</h1><span>$CFK</span></div></div>
-        <span className="official-token-label">OFFICIAL CASHFLOWKEY TOKEN</span>
-        <h2 className="hero-headline">Buy, sell &amp; track <span>$CFK</span></h2>
-        <p className="brand-tagline">The official token of Cashflowkey, on Solana.</p>
+        <p className="brand-tagline">Buy, sell &amp; track your CFK.</p>
         <button type="button" className="token-address-link" onClick={()=>setModal('token')}>Token details</button>
       </header>
       <section className="coin-card" aria-label="Cashflowkey market">
         <div className="price-heading"><h2>$CFK Price</h2><span className="price-currency">USD</span></div>
         <div className="price-row"><strong>{formatMoney(inspected?.[4]??market?.priceUsd,true)}</strong><div className="price-detail">{inspected?<span className="inspected-time">{new Date(inspected[0]*1000).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}<small>Historical price</small></span>:<span className={change==null?'change muted':change<0?'change loss':'change gain'}>{changeText}<small>past 24 hours</small></span>}</div></div>
+        {marketError&&<p className="market-warning" role="status">Price updates are reconnecting. The displayed price may be out of date.</p>}
         <PriceChart key={range} points={points} message={chartMessage} loading={chartLoading} historyStart={historyStart} onInspect={setInspected}/>
         <div className="ranges" role="group" aria-label="Chart period">{[['1h','1H'],['1d','1D'],['1w','1W'],['1m','1M'],['all','ALL']].map(([key,label])=><button key={key} aria-pressed={range===key} onClick={()=>setRange(key)}>{label}</button>)}</div>
       </section>
       <section id="position" className="position-card" aria-label="Your position"><div className="position-heading"><h2>Your Position</h2><span className="token-badge">$CFK</span></div><div className="position-value"><div><span>CFK value</span><strong>{account?formatMoney(position?.valueUsd):'—'}</strong></div>{position?.pnlPercent!=null&&<div className="position-return"><strong className={position.pnlPercent<0?'loss':'gain'}>{position.pnlPercent>=0?'+':''}{position.pnlPercent.toFixed(2)}%</strong><small>{formatMoney(position.pnlUsd)} return</small></div>}</div><div className="position-tokens"><div><span>Tokens owned</span><strong>{formatNumber(account?position?.tokens:null)}</strong></div><span className="token-badge">$CFK</span></div>
-        {!account&&<div className="account-status"><p>Sign in to see your CFK and available balance. Returning? Use the same sign-in method as before.</p><button className="secondary" disabled={!config?.privyAppId||flow.step==='sign-in'} onClick={()=>{queuedAction.current=null;signIn();}}>Sign in to your account</button></div>}
+        {!account&&<div className="account-status"><p>Already bought CFK? Sign in to see your balance.</p><button className="secondary" disabled={!config?.privyAppId||flow.step==='sign-in'} onClick={()=>{queuedAction.current=null;signIn();}}>Sign in to your account</button><details className="legacy-recovery"><summary>Recover an older account</summary><p>Use the original sign-in method to keep access to earlier purchases.</p><button className="secondary" disabled={busy} onClick={()=>{queuedAction.current=null;signIn('telegram');}}>Recover Telegram account</button></details></div>}
+        {isGuest&&(position?.tokens>0||position?.availableUsd>0||pendingRef.current?.type==='funded')&&<div className="save-account"><h3>Save your account</h3><p>Add your email to keep access to your CFK on any device. Until then, access is limited to this browser and expires after 30 days.</p><button className="primary" disabled={busy||!online} onClick={saveAccount}>Save with email</button></div>}
         {flow.step==='sign-in'&&<div className="account-status"><p role="status">Complete secure sign-in to continue.</p><button className="secondary" onClick={onCancelSignIn}>Cancel sign-in</button></div>}
         {account&&position?.availableUsd!=null&&<div className="account-status"><div className="available-balance"><span>Available balance</span><strong>{formatMoney(position.availableUsd)}</strong></div><p>Held in SOL, shown in USD. Its value can change. A reserve is kept for network costs.</p>{config?.checkout?.withdrawEnabled?<button className="secondary" disabled={busy||!online||position.availableUsd<.01} onClick={()=>begin('withdraw',Math.floor(position.availableUsd*100)/100)}>Withdraw cash</button>:<p className="availability-note">Cash withdrawals are not available yet. Selling CFK keeps the proceeds in your account as SOL.</p>}</div>}
         {pendingRef.current&&<div className="account-status"><p>You have an unfinished payment or trade.</p><button className="secondary" disabled={busy||flow.step==='sign-in'} onClick={recover}>Check previous payment or trade</button></div>}
@@ -221,26 +227,25 @@ export default function App(){
       <section className="activity" aria-label="Coin activity"><div className="section-heading"><h2>Coin Activity</h2><span className="activity-badge">Latest trades</span></div><div className="activity-status"><span className={activity?.unavailable?'status-dot offline':'status-dot'}/><span>{activity?.unavailable?'Reconnecting to activity':'Recent buys & sells'}</span><small>{activity?.updatedAt?'Updated '+new Date(activity.updatedAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):'Connecting…'}</small></div><ul>{activity?.items?.length?activity.items.slice(0,10).map(item=><li key={item.id}><span className={'activity-icon '+item.side}><Icon name={item.side==='buy'?'plus':'arrow'}/></span><div><strong>{item.side==='buy'?'Bought':'Sold'} CFK</strong><small>{new Date(item.timestamp).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</small></div><div className="activity-value"><strong>{item.usd!=null?formatMoney(item.usd):formatNumber(item.tokens)+' CFK'}</strong></div><a href={'https://solscan.io/tx/'+item.signature} target="_blank" rel="noreferrer" aria-label="View transaction"><Icon/></a></li>):<li className="empty-activity"><p>{activity?.unavailable?'Activity is unavailable right now.':'Confirmed buys and sells will appear here.'}</p></li>}</ul><p className="source-note">Confirmed coin activity. Prices shown in USD when available.</p></section>
       <section className="creator-card" aria-labelledby="creator-heading">
         <div className="creator-photo"><img src="/assets/cashflowkey-creator.jpg" width="1152" height="2048" loading="lazy" decoding="async" alt="Cashflowkey seated in a vehicle with an orange interior"/><span className="creator-photo-label">THE NAME BEHIND $CFK</span></div>
-        <div className="creator-body"><span className="brand-eyebrow">MEET THE CREATOR</span><h2 id="creator-heading">Cashflowkey</h2><p>Entrepreneur. Creator. Follow the person behind $CFK.</p><nav className="creator-socials" aria-label="Creator social profiles">{CREATOR_SOCIALS.map(social=><a key={social.name} href={social.url} target="_blank" rel="noopener noreferrer" aria-label={'Cashflowkey on '+social.name+' (opens in a new tab)'} title={social.name} onClick={event=>openSocial(event,social.url)}><img src={'/assets/social-'+social.icon+'.svg'} width="19" height="19" alt=""/><span>{social.name}</span></a>)}</nav></div>
+        <div className="creator-body"><span className="brand-eyebrow">MEET THE CREATOR</span><h2 id="creator-heading">Cashflowkey</h2><p>Entrepreneur. Creator. Follow the person behind $CFK.</p><nav className="creator-socials" aria-label="Creator social profiles">{CREATOR_SOCIALS.map(social=><a key={social.name} href={social.url} target="_blank" rel="noopener noreferrer" aria-label={'Cashflowkey on '+social.name+' (opens in a new tab)'} title={social.name}><img src={'/assets/social-'+social.icon+'.svg'} width="19" height="19" alt=""/><span>{social.name}</span></a>)}</nav></div>
       </section>
       <footer><InstallApp/><p>Crypto can lose all its value. No returns are guaranteed.<br/>Free Crypto App LLC and related parties may hold or sell CFK.</p><nav aria-label="Legal"><button onClick={()=>setModal('disclosures')}>Disclosures</button><a href="/terms">Terms</a><a href="/privacy">Privacy</a><button onClick={()=>setModal('measurement')}>Privacy choices</button></nav><p>Operated by Free Crypto App LLC</p><a href="mailto:support@freecryptoapp.com">support@freecryptoapp.com</a></footer>
     </main>
-    <TradeDock amount={amount} setAmount={setAmount} onBuy={()=>begin('buy')} onSell={()=>begin('sell')} onCustom={()=>{setCustomAmount(amount);setModal('amount');}} busy={busy||!online} canSell={position?.tokens>0} openingSignIn={flow.step==='sign-in'} />
+    <TradeDock amount={amount} setAmount={setAmount} onBuy={()=>begin('buy')} onSell={()=>begin('sell',Math.min(Number(amount),Math.floor((position?.valueUsd||0)*100)/100))} busy={busy||!online} canSell={position?.tokens>0} openingSignIn={['sign-in','guest-connect'].includes(flow.step)} loading={!config&&!configError} unavailable={config?.checkout?.buyEnabled!==true} pending={pendingRef.current} onResume={recover} onWarm={warmWallet}/>
     {modal==='token'&&<Modal title="$CFK token details" onClose={()=>setModal(null)}><div className="token-details"><p>Official Cashflowkey token on Solana.</p><span>Token address</span><code>{config?.mint||MINT}</code><button className="primary" onClick={copyMint}>Copy address</button></div></Modal>}
-    {modal==='amount'&&<Modal title="Choose your amount" onClose={()=>setModal(null)}><form onSubmit={e=>{e.preventDefault();if(Number(customAmount)>0){setAmount(customAmount);setModal(null);}}}><label className="custom-label" htmlFor="custom-amount">How much would you like to spend?</label><div className="custom-amount"><span>$</span><input autoFocus id="custom-amount" aria-label="Custom amount in US dollars" inputMode="decimal" value={customAmount} onChange={e=>{if(/^\d{0,8}(\.\d{0,2})?$/.test(e.target.value))setCustomAmount(e.target.value);}}/><span>USD</span></div><button className="primary" disabled={!Number(customAmount)} type="submit">Use {formatMoney(Number(customAmount)||0)}</button></form></Modal>}
-    {walletActive&&config?.privyAppId&&<Suspense fallback={null}><Wallet appId={config.privyAppId} activation={activation} loginMethod={loginMethod} onReady={onReady} onError={onError} onCancel={onCancelSignIn}/></Suspense>}
+    {walletActive&&config?.privyAppId&&<Suspense fallback={null}><Wallet appId={config.privyAppId} activation={activation} loginMethod={loginMethod} guestCheckoutEnabled={config.guestCheckoutEnabled} onReady={onReady} onError={onError} onCancel={onCancelSignIn}/></Suspense>}
     {notice&&<div className="toast" role="status">{notice}</div>}
     {modal==='transaction'&&<Modal title={intent==='withdraw'?'Withdraw cash':intent==='sell'?'Sell CFK':'Buy CFK'} onClose={close}>
       
-      {flow.step==='auth-error'&&<div className="flow-state"><h3>Let’s reconnect your account</h3><p role="status">{flow.message}</p><button className="primary" onClick={()=>signIn()}>Try again</button></div>}
-      {['sign-in','idle','loading','buying','confirming'].includes(flow.step)&&<div className="flow-state"><div className="spinner"/><h3>{flow.step==='sign-in'?'Connecting your account':flow.step==='idle'?'Getting you ready':flow.step==='confirming'?'Confirming your transaction':flow.step==='buying'?(flow.side==='sell'?'Selling your CFK':'Buying your CFK'):'Preparing your amount'}</h3><p>{flow.step==='sign-in'?'Connecting securely through Telegram…':flow.step==='idle'?'Preparing your account.':'You can follow the progress here.'}</p></div>}
+      {flow.step==='auth-error'&&<div className="flow-state"><h3>Let’s reconnect your account</h3><p role="status">{flow.message}</p><button className="primary" onClick={()=>loginMethod==='upgrade'?saveAccount():signIn(loginMethod)}>Try again</button></div>}
+      {['sign-in','guest-connect','idle','loading','buying','confirming'].includes(flow.step)&&<div className="flow-state"><div className="spinner"/><h3>{flow.step==='sign-in'?'Connecting your account':flow.step==='idle'?'Getting you ready':flow.step==='confirming'?'Confirming your transaction':flow.step==='buying'?(flow.side==='sell'?'Selling your CFK':'Buying your CFK'):'Preparing your amount'}</h3><p>{flow.step==='sign-in'?'Complete secure sign-in to continue.':flow.step==='idle'?'Preparing your account.':'You can follow the progress here.'}</p></div>}
       
       {flow.step==='checkout'&&<><div className="checkout-summary"><p className="dialog-copy"><strong>{flow.direction==='onramp'?'Pay '+formatMoney(flow.grossCents/100)+' to buy CFK':'Withdraw '+formatMoney(flow.grossCents/100)}</strong></p>{flow.platformFeeCents!=null&&<p className="dialog-copy">Includes our 15% fee ({formatMoney(flow.platformFeeCents/100)}){flow.providerFeeCents!=null?' and an estimated '+formatMoney(flow.providerFeeCents/100)+' payment provider fee.':'.'} {flow.direction==='onramp'?'Available for CFK and purchase costs: '+formatMoney(flow.netCents/100)+'. Coin purchase and network costs are extra.':'Estimated cash payout: '+formatMoney(flow.netCents/100)+'.'}</p>}</div>{flow.provider==='stripe'?(flow.clientSecret?<StripeCheckout publishableKey={flow.publishableKey} clientSecret={flow.clientSecret} onUpdate={resume}/>:<p role="status">Restoring your secure payment…</p>):(flow.checkoutUrl?<iframe className="checkout-frame" src={flow.checkoutUrl} title="Secure payment" allow="payment" referrerPolicy="no-referrer"/>:<p role="status">We’re checking the payment provider. Use Check payment to try again. Your payment reference is saved.</p>)}<p className="dialog-copy">{flow.direction==='onramp'?'Your CFK purchase starts automatically after your payment is verified.':'Your payout is confirmed by the payment provider.'}</p><button className="secondary" disabled={busy||!online} onClick={resume}>Check payment</button></>}
       {flow.step==='sell-review'&&<div className="review"><h3>Review sale</h3><dl><div><dt>Selected CFK value</dt><dd>{formatMoney(flow.amountUsd)}</dd></div><div><dt>Estimated sale proceeds</dt><dd>{formatMoney(flow.quote.amountUsd)}</dd></div><div><dt>CFK to sell</dt><dd>{formatNumber(flow.quote.tokens)}</dd></div><div><dt>Price movement allowance</dt><dd>{flow.quote.slippageBps/100}%</dd></div></dl><p>{config?.checkout?.withdrawEnabled?'Selling converts CFK to SOL. Withdrawing cash is a separate step with a 15% platform fee plus provider costs.':'Cash withdrawals are not available yet. Selling converts CFK to SOL held in your account; it does not pay cash to your bank.'}</p><p>Network and trading costs apply. Final proceeds may differ, and quotes can expire.</p><button className="primary" disabled={busy||!online} onClick={confirmSale}>Confirm sale</button><button className="secondary" onClick={close}>Cancel</button></div>}
       {flow.step==='funding-review'&&<div className="review"><h3>Your payment amount changed</h3><p>You paid {formatMoney(flow.grossCents/100)}. Review the updated amounts before buying CFK.</p><dl><div><dt>Platform fee · 15%</dt><dd>{formatMoney(flow.platformFeeCents/100)}</dd></div><div><dt>Payment provider fee</dt><dd>{formatMoney(flow.providerFeeCents/100)}</dd></div><div><dt>Available for CFK & extra costs</dt><dd>{formatMoney(flow.netCents/100)}</dd></div></dl><button className="primary" disabled={busy||!online} onClick={approveFunding}>Accept & buy CFK</button><button className="secondary" onClick={close}>Decide later</button></div>}
       {flow.step==='sandbox-complete'&&<div className="flow-state"><h3>Test payment complete</h3><p>No real money moved and no CFK was purchased.</p><button className="secondary" onClick={close}>Done</button></div>}
       {['blocked','funded-error','pending'].includes(flow.step)&&<div className="flow-state"><h3>{flow.step==='funded-error'?'Payment received':flow.step==='pending'?'Still confirming':'Unable to continue'}</h3><p role="status">{flow.step==='funded-error'?'Your payment arrived, but the coin purchase needs attention. '+flow.message:flow.message}</p>{pendingRef.current&&<button className="primary" onClick={resume} disabled={busy||!online}>Check again</button>}{pendingRef.current&&<p className="recovery-reference">Keep this reference if you contact support: {pendingRef.current.rampId||pendingRef.current.orderId}</p>}<button className="secondary" onClick={close}>Back to CFK</button></div>}
-      {flow.step==='complete'&&<div className="flow-state"><Icon name="check"/><h3>{flow.side==='sell'?'Your CFK is sold':'Your CFK is yours'}</h3><p>{flow.side==='sell'?config?.checkout?.withdrawEnabled?'Your sale is confirmed. Continue to the payment provider to withdraw your SOL balance.':'Your sale is confirmed. Proceeds remain in your account as SOL. Cash withdrawals are not available yet.':flow.positionUpdated?'Your position has been updated.':'Your purchase is confirmed. Your position is refreshing.'}</p>{flow.side==='sell'&&config?.checkout?.withdrawEnabled&&position?.availableUsd>.01&&<button className="primary" onClick={()=>begin('withdraw',Math.floor(position.availableUsd*100)/100)}>Withdraw {formatMoney(position.availableUsd)}</button>}<button className="secondary" onClick={close}>Done</button></div>}
+      {flow.step==='complete'&&<div className="flow-state"><Icon name="check"/><h3>{flow.side==='sell'?'Your CFK is sold':'Your CFK is yours'}</h3><p>{flow.side==='sell'?config?.checkout?.withdrawEnabled?'Your sale is confirmed. Continue to the payment provider to withdraw your SOL balance.':'Your sale is confirmed. Proceeds remain in your account as SOL. Cash withdrawals are not available yet.':flow.positionUpdated?'Your position has been updated.':'Your purchase is confirmed. Your position is refreshing.'}</p>{flow.side==='sell'&&config?.checkout?.withdrawEnabled&&position?.availableUsd>.01&&<button className="primary" onClick={()=>begin('withdraw',Math.floor(position.availableUsd*100)/100)}>Withdraw {formatMoney(position.availableUsd)}</button>}{flow.side==='buy'&&isGuest&&<><p>Save your account with email to keep access to your CFK on any device.</p><button className="primary" onClick={saveAccount}>Save my account</button></>}<button className="secondary" onClick={close}>Done</button></div>}
       {flow.step==='paid'&&<div className="flow-state"><Icon name="check"/><h3>Withdrawal confirmed</h3><p>Your payment provider has confirmed the payout. Arrival time depends on your payment method.</p><button className="secondary" onClick={close}>Done</button></div>}
     </Modal>}
     {['disclosures','terms','privacy'].includes(modal)&&<Modal title={{disclosures:'Risk & fee disclosures',terms:'Terms of use',privacy:'Privacy policy'}[modal]} onClose={()=>setModal(null)}><Legal kind={modal}/></Modal>}

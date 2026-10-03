@@ -34,7 +34,7 @@ Provision a separate PostgreSQL database (Supabase is supported). Put its server
 
 Set `APP_URL` to the new production origin and a random `CRON_SECRET`. The current Vercel workspace is on Hobby, so `vercel.json` intentionally has no cron schedule. For production, schedule authenticated `/api/jobs` calls at least every five minutes using Supabase Cron, or run `npm run worker` on a persistent Railway service with the same server environment. Vercel Pro can alternatively schedule `/api/jobs` every five minutes. The worker reconciles submitted transactions and payments and retries conversion delivery. Supabase Cron is provisioned to call `/api/jobs` every five minutes using a Vault-held secret. Do not disable it for a launch with measurement enabled.
 
-Create/configure the Privy app: embedded Solana wallets, email login, Telegram seamless authentication, the Telegram bot, and the exact allowed web/mini-app origins. Set `PRIVY_APP_ID`, `PRIVY_APP_SECRET`, and `PRIVY_VERIFICATION_KEY` on Vercel. Private keys remain in the user-authorized wallet flow.
+Create/configure the Privy app with Guest accounts, email login, and the exact website origins. Keep automatic wallet creation off; Solana wallets are created explicitly at checkout. Telegram login remains available only to recover older accounts. Set `PRIVY_APP_ID`, `PRIVY_APP_SECRET`, and `PRIVY_VERIFICATION_KEY` on Vercel. Private keys remain in the user-authorized wallet flow.
 
 Set a production `SOLANA_RPC_URL` and `BIRDEYE_API_KEY`. Pump’s official transaction service builds unsigned buy/sell transactions with integer atomic amounts. The app validates and simulates it, Privy signs it, and the server stores its signature before broadcasting. Verify a CFK buy and sell route, liquidity, quote, network reserve, and wallet signing before setting `TRADING_ENABLED=true`. A buy requires finalized on-chain confirmation matching the server-prepared transaction and actual CFK balance movement.
 
@@ -81,11 +81,15 @@ Do not turn on real-money flags until those dependencies are verified. The app c
 
 ## Simple purchase flow
 
-The default is Buy $20. A compact blue-and-black Cashflowkey header introduces the coin without replacing the fixed amount selector. Below activity, a short About section explains CFK and the Creator card uses the user's original IMG_1520.JPG photo. The creator's YouTube, Instagram, X, and TikTok profiles appear in a Creator card below Coin Activity with locally hosted Simple Icons brand SVGs. A customer signs in through Telegram or email, reviews the payment fees, and completes embedded checkout. Verified funding triggers the CFK purchase automatically. One payment has one order; a refresh resumes the same signed transaction. Sell uses a dollar amount and then offers Withdraw. Cash payouts still require the approved provider. The main page never displays a SOL balance or wallet controls.
+The default is Buy $20. Choose $20, $50, $100, or type a custom amount directly, then press Buy. These are the two app actions before payment; Stripe may require payment details, identity verification, or bank approval. A new buyer receives a background guest session without entering an email or using Telegram. After verified funding and the CFK purchase, Save my account upgrades that same guest identity using email. Existing buyers can sign in separately. The creator card retains the original photo and verified YouTube link.
+
+Verified funding triggers the CFK purchase automatically. One payment has one order; a refresh resumes the same payment or signed transaction. Sell opens a review before signing and limits the initial selection to the position's value. Sale proceeds remain in SOL; cash payouts require a separately approved and enabled provider.
+
+**Release gate observed October 3, 2026:** the current Privy app has email login enabled but Guest accounts disabled. Enable Guest accounts in Privy's dashboard before releasing this flow, then verify guest creation, payment, and email upgrade on the actual website origin. `/api/config` checks the public Privy configuration and fails closed if either guest or email authentication is unavailable. See [the checkout audit](docs/checkout-audit-2026-10-03.md).
 
 ### Wallet creation and cost controls
 
-Automatic wallet creation is off for both Ethereum and Solana. First-time browsing and choosing an amount do not mount Privy. Returning users who previously signed in can restore their existing Privy session; otherwise Privy activates only after an explicit sign-in, account action, available Buy action, or payment recovery tap. Pending payments remain saved and offer a recovery button instead of automatically signing in. Cancelling sign-in unmounts the provider. Signing in, viewing a position, and attempting to sell from an empty account do not create wallets.
+Automatic wallet creation is off for both Ethereum and Solana. First-time browsing and choosing an amount do not mount Privy; amount interaction can preload its code. Returning users can restore their existing session. Otherwise Privy activates after an explicit account action or available Buy action. A recent explicit Buy intent survives a refresh in the same tab for ten minutes and retains its amount. Unresolved payments retain their separate durable recovery reference. Cancelling sign-in preserves an existing authenticated session. Signing in, viewing a position, and attempting to sell from an empty account do not create wallets.
 
 Before creating a Solana funding address, the app checks payment availability and calls the authenticated `/api/ramp/preflight` endpoint to validate the session, amount, and server payment configuration. Only then does it explicitly create the wallet if needed. Concurrent creation attempts share one request, existing wallets are reused, and cancelled attempts can be retried.
 
@@ -95,9 +99,11 @@ There is no automatic user or wallet deletion on abandonment. Privy's [standard 
 
 `TELEGRAM_BOT_TOKEN` is server-only. `TELEGRAM_BOT_USERNAME` has no `@`. Both also need to be configured with the matching Telegram bot in Privy.
 
-### Marketing domain and Telegram
+### Website and older accounts
 
-External visits to the root of `buycfk.com` or `www.buycfk.com` automatically open `https://t.me/Cashflowkeybot?startapp=buycfk&mode=fullscreen` after allowing Telegram initialization to finish. A visible Open in Telegram button and Continue in browser fallback remain available. Valid incoming `startapp` or `ref` values are retained in the Telegram link. The browser fallback retains the original query string. No Privy provider is loaded by the launcher. Existing Telegram context, account callback parameters, and non-root paths skip the handoff. Keep BotFather's Mini App URL and menu URL pointing to `https://buy-cfk.vercel.app/`, the existing approved authentication/API origin, to avoid a launch loop or changing account origins.
+`buycfk.com`, `www.buycfk.com`, and `buy-cfk.vercel.app` render the app directly. The Telegram redirect and blocking Telegram SDK are removed. The API accepts these exact verified production aliases when `APP_URL` is one of them; arbitrary origins and unrelated previews remain rejected. Configure an isolated preview's own `APP_URL` to test authenticated POST routes there. Explicit sandbox links retain their fixed allowlisted destination.
+
+Browser sessions are scoped to their origin. Keep old holders' login method available under Recover an older account. New purchases use guest checkout, followed by email recovery. Privy guest sessions last 30 days; a funded guest is prompted to save access, and the app never logs it out or deletes it after a failed upgrade. Privy does not merge a guest into an existing account, so an already-used email may require a different email for that purchase.
 
 ## Route verification status
 
@@ -107,7 +113,7 @@ The unlinked, no-index `/layout-preview.html` page renders the real app at two m
 
 Sources: [Pump transaction API](https://github.com/pump-fun/pump-fun-skills/tree/main/swap), [Pump.fun protocol IDLs](https://github.com/pump-fun/pump-public-docs), [Solana account queries](https://solana.com/docs/rpc/http/getprogramaccounts).
 
-Sign-in is explicitly available in Telegram as well as the browser, with a visible retry if authentication fails. Email sign-in remains a separate provider-configuration rollout. The app releases its own dialog before opening Privy and keeps transaction dialogs below provider overlays. In Privy, enable **Telegram** itself as well as **seamless Mini App login**; the seamless checkbox alone does not enable Telegram authentication.
+Returning-user sign-in uses email. The app releases its own dialog before opening Privy, keeps transaction dialogs below provider overlays, and does not time out while someone is reading an email. Telegram remains an explicit legacy recovery option; new purchases do not depend on Telegram.
 
 
 ### Stripe embedded onramp
@@ -119,7 +125,7 @@ Required server configuration:
 - `STRIPE_SECRET_KEY` and `STRIPE_PUBLISHABLE_KEY`: matching API key modes from the approved onramp account.
 - `STRIPE_ONRAMP_WEBHOOK_SECRET`: signing secret for onramp session notifications sent to `https://buy-cfk.vercel.app/api/stripe/webhook`.
 - `PLATFORM_FEE_WALLET`: the owner's admin Privy wallet's **public Solana address**. No private key is required. Do not substitute a creator or token address.
-- Register the actual mini app origin with Stripe. Marketing domains that redirect to Telegram are not the embedded checkout origin.
+- Register each actual website checkout origin with Stripe, including `https://buycfk.com` and any alternate origin used by customers.
 
 Production builds add and verify the private settlement uniqueness table in the project's configured database. Other environments use `npm run db:migrate`. The public schema enables RLS and has no browser policies.
 
@@ -137,7 +143,7 @@ Known activation gate: validate the complete current route with a funded simulat
 - Sale review shows the amount, estimated proceeds, and price movement allowance. An expired unsigned quote is refreshed for review before signing.
 - Unfinished payment references do not expire after 24 hours or disappear on a generic confirmation conflict. The authenticated `GET /api/account/history` endpoint exposes only the signed-in user's most recent 20 payment/trade records and immutable recovery references. Opening history never initiates a trade.
 - “Add to Home Screen” is optional and only opens installation help or the browser's installation prompt after a tap. The manifest uses existing CFK artwork, standalone display, and a clean `/` start URL. No service worker, offline payment processing, credential cache, or quote cache is installed. Live prices and account actions need an internet connection.
-- Browser-first branded-domain routing and additional sign-in methods are a separate rollout: first verify Privy and Stripe origins and obtain approval for any required security-sensitive configuration changes. Existing Telegram links and authentication identity remain supported.
+- Website routing and guest-first checkout are implemented in the October 3 branch, gated on Privy Guest accounts and provider-origin verification. Existing account identities remain supported.
 
 The test suite includes isolated DOM interaction tests. `npm test` runs tests serially to bound concurrent PostgreSQL/WASM memory use. These fixtures do not exercise live payment, wallet signing, KYC, or provider origin configuration.
 
