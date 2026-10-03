@@ -30,6 +30,10 @@ The requested experience is the BuyCFK website: choose an amount, press Buy, pay
 
 All 55 tests pass and `npm run build` succeeds locally. Automated DOM tests exercise amount selection, guest connection, payment verification, automatic coin purchase, account upgrade/retry, refresh recovery, disabled guest checkout, sale review, and older payment recovery. Payment, Privy, and chain responses in these tests are fixtures, not live transactions. Existing server tests cover authentic payment signatures, fee accounting, duplicate settlement, and confirmed trade idempotence.
 
+Vercel preview `cfk-iyn708fc6-cashflowkey.vercel.app` built successfully from commit `ec8c6f4`. Browser checks confirmed desktop rendering, inline custom amount entry, and the 375 × 667 layout with no horizontal overflow. Preview configuration reports buying and guest checkout disabled, so verification stopped before creating an identity or payment. The browser console showed extension-origin metadata errors, but no application-origin errors during these checks.
+
+![Mobile preview with an inline custom amount; preview buying is disabled](checkout-preview-20261003.jpg)
+
 On October 3, the production public app configuration reported buying enabled and withdrawals disabled. Privy's public app configuration reported email authentication enabled and guest authentication disabled. No provider settings, live balances, or real-money transactions were changed during this audit.
 
 The branch must stay out of production until Guest accounts is enabled in Privy's dashboard and guest checkout plus email upgrade is verified on the actual approved website origin. `/api/config` checks both guest and email support with a short cache; an unavailable check blocks new guest creation. Existing authenticated accounts can still access their balances and recover payments.
