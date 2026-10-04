@@ -16,7 +16,7 @@ svg { width: 20px; height: 20px; flex-shrink: 0; }
 .app-loading { padding: 40px 20px; text-align: center; color: var(--muted); }
 .app { --page-top-gap: 18px; width: min(100%, 620px); margin: auto; padding: calc(var(--page-top-gap) + env(safe-area-inset-top, 0px)) 16px 0; }
 .coin-identity, .coin-card, .market-card, .position-card, .activity, .creator-card { border: 1px solid var(--line); border-radius: 24px; background: #fff; }
-.coin-identity { display: flex; flex-direction: column; gap: 12px; padding: 18px; margin-bottom: 14px; border-color: #1c4163; background: linear-gradient(120deg, #101a25, #102a42 75%, #13476b); color: #fff; box-shadow: 0 8px 24px #102e4e0c; }
+.coin-identity { display: flex; flex-direction: column; gap: 12px; padding: 18px; margin-bottom: 14px; border-color: #1c4163; background: #102a42; color: #fff; box-shadow: 0 8px 24px #102e4e0c; }
 .coin-identity-main { display: flex; align-items: center; gap: inherit; }
 .coin-identity-main > img { flex-shrink: 0; width: 48px; height: 48px; border-radius: 12px; object-fit: contain; background: #102a42; }
 .coin-identity h1 { font-size: 23px; font-weight: 900; letter-spacing: -.8px; line-height: 1.1; margin: 0 0 6px; }
