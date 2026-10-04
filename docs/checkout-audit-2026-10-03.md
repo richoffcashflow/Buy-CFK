@@ -40,6 +40,10 @@ Vercel preview `cfk-iyn708fc6-cashflowkey.vercel.app` built successfully from co
 
 ![Mobile preview with an inline custom amount; preview buying is disabled](checkout-preview-20261003.jpg)
 
+The standalone follow-up preview `cfk-2nidgvo17-cashflowkey.vercel.app` is READY from commit `0cae385`. Browser checks confirmed direct website rendering, no automatically opened checkout, page scrolling, and Instagram as the only social link. The 375 × 667 layout has matching 360px document and content widths (15px scrollbar), and the chart uses `pan-y pinch-zoom`. The preview configuration still reports buying and guest checkout disabled. No application-origin console errors appeared.
+
+![Standalone mobile website with Instagram only; preview buying is disabled](standalone-site-20261004.jpg)
+
 On October 3, the production public app configuration reported buying enabled and withdrawals disabled. Privy's public app configuration reported email authentication enabled and guest authentication disabled. No provider settings, live balances, or real-money transactions were changed during this audit.
 
 The branch must stay out of production until Guest accounts is enabled in Privy's dashboard and guest checkout plus email upgrade is verified on the actual approved website origin. `/api/config` checks both guest and email support with a short cache; an unavailable check blocks new guest creation. Existing authenticated accounts can still access their balances and recover payments.
