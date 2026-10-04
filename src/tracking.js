@@ -18,7 +18,7 @@ export function captureAttribution(){
   storage.set('cfk_attribution',JSON.stringify(data));return data;
 }
 export async function getSession(){
-  if(!sessionPromise)sessionPromise=api('/session',{method:'POST',body:{sessionId:storage.get('cfk_session'),consent:getConsent(),attribution:captureAttribution(),startParam:window.Telegram?.WebApp?.initDataUnsafe?.start_param||new URLSearchParams(location.search).get('startapp')||null}}).then(d=>{storage.set('cfk_session',d.id);return d;}).catch(e=>{sessionPromise=null;throw e;});
+  if(!sessionPromise)sessionPromise=api('/session',{method:'POST',body:{sessionId:storage.get('cfk_session'),consent:getConsent(),attribution:captureAttribution()}}).then(d=>{storage.set('cfk_session',d.id);return d;}).catch(e=>{sessionPromise=null;throw e;});
   return sessionPromise;
 }
 export function setConsent(value){

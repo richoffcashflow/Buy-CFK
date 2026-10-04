@@ -14,16 +14,7 @@ button:disabled { opacity: .45; cursor: default; }
 button:focus-visible, a:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 3px solid #79b9ff; outline-offset: 3px; }
 svg { width: 20px; height: 20px; flex-shrink: 0; }
 .app-loading { padding: 40px 20px; text-align: center; color: var(--muted); }
-.telegram-launcher { min-height: 100svh; display: grid; place-items: center; padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom)); }
-.telegram-launcher section { width: min(100%, 380px); text-align: center; }
-.telegram-launcher img { border-radius: 50%; margin-bottom: 20px; }
-.telegram-launcher h1 { font-size: 36px; letter-spacing: -1px; margin: 0; }
-.telegram-launcher p { color: var(--muted); line-height: 1.5; margin: 14px 0 26px; }
-.telegram-launcher .primary { display: flex; align-items: center; justify-content: center; min-height: 58px; text-decoration: none; }
-.browser-fallback { display: block; color: var(--blue-dark); padding: 20px 0; font-weight: 650; }
-.telegram-launcher small { display: block; color: var(--muted); margin-top: 18px; }
-/* Telegram's controls sit below the device status bar in fullscreen mode. */
-.app { --page-top-gap: 18px; width: min(100%, 620px); margin: auto; padding: calc(var(--page-top-gap) + max(env(safe-area-inset-top, 0px), var(--tg-safe-area-inset-top, 0px)) + var(--tg-content-safe-area-inset-top, 0px)) 16px 0; }
+.app { --page-top-gap: 18px; width: min(100%, 620px); margin: auto; padding: calc(var(--page-top-gap) + env(safe-area-inset-top, 0px)) 16px 0; }
 .coin-identity, .coin-card, .market-card, .position-card, .activity, .creator-card { border: 1px solid var(--line); border-radius: 24px; background: #fff; }
 .coin-identity { display: flex; flex-direction: column; gap: 12px; padding: 18px; margin-bottom: 14px; border-color: #1c4163; background: linear-gradient(120deg, #101a25, #102a42 75%, #13476b); color: #fff; box-shadow: 0 8px 24px #102e4e0c; }
 .coin-identity-main { display: flex; align-items: center; gap: inherit; }
@@ -48,8 +39,8 @@ svg { width: 20px; height: 20px; flex-shrink: 0; }
 .creator-photo-label { position: absolute; bottom: 19px; left: 21px; z-index: 1; color: #fff; font-size: 10px; font-weight: 750; letter-spacing: 1.8px; }
 .creator-body { padding: 23px 21px; }
 .creator-body h2 { margin-top: 7px; font-size: 30px; letter-spacing: -1px; }
-.creator-socials { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 18px; }
-.creator-socials a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 67px; border-radius: 12px; background: #f5f6f8; color: #475467; text-decoration: none; font-size: 9px; font-weight: 650; }
+.creator-socials { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 18px; }
+.creator-socials a { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; border-radius: 12px; background: #f5f6f8; color: #475467; text-decoration: none; font-size: 12px; font-weight: 650; }
 .creator-socials a:hover { background: var(--blue-light); }
 .creator-socials img { width: 19px; height: 19px; border-radius: 0; background: none; }
 .coin-card { padding: 21px 20px 18px; }
@@ -66,7 +57,7 @@ h2 { margin: 0; font-size: 21px; letter-spacing: -.65px; font-weight: 850; }
 .inspected-time small { font-size: 10px; color: var(--muted); font-weight: 500; }
 .chart { margin-top: 13px; position: relative; }
 .chart-stage { position: relative; padding-right: 67px; }
-.chart-plot { position: relative; height: 230px; touch-action: none; user-select: none; cursor: crosshair; }
+.chart-plot { position: relative; height: 230px; touch-action: pan-y pinch-zoom; user-select: none; cursor: crosshair; }
 .chart-plot > svg { width: 100%; height: 100%; overflow: visible; display: block; pointer-events: none; }
 .chart-dot { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: var(--blue); border: 2px solid #fff; box-shadow: 0 0 0 3px #1683f824; transform: translate(-50%, -50%); pointer-events: none; }
 .chart-axis { position: absolute; top: -5px; bottom: -5px; right: 0; width: 60px; display: flex; flex-direction: column; justify-content: space-between; color: #9397a1; font-size: 9px; font-weight: 650; font-variant-numeric: tabular-nums; }
@@ -108,7 +99,7 @@ h2 { margin: 0; font-size: 21px; letter-spacing: -.65px; font-weight: 850; }
 .empty-activity { justify-content: center; min-height: 135px; text-align: center; color: #929baa; }.empty-activity p { font-size: 13px; line-height: 1.6; margin: 15px; }.source-note { margin: 13px 0 0; color: #959dab; font-size: 10px; text-align: center; }
 footer { text-align: center; padding: 25px 10px 18px; font-size: 11px; line-height: 1.8; color: #8a92a0; }footer p { margin: 0 0 10px; }footer nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin: 17px 0; }footer button { border: 0; background: transparent; color: #6d7d90; padding: 4px 0; font-size: 11px; }footer a { color: #718298; text-decoration: none; font-size: 11px; }.coin-details { display: block; margin-top: 8px; }
 #root { padding-bottom: calc(var(--dock-height) + 28px); }
-.trade-dock { position: fixed; z-index: 10; bottom: 0; left: 0; right: 0; background: #fffffff7; border-top: 1px solid #e6e9ef; box-shadow: 0 -10px 30px #1a34430b; padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--tg-content-safe-area-inset-bottom, 0px)); backdrop-filter: blur(12px); }
+.trade-dock { position: fixed; z-index: 10; bottom: 0; left: 0; right: 0; background: #fffffff7; border-top: 1px solid #e6e9ef; box-shadow: 0 -10px 30px #1a34430b; padding-bottom: env(safe-area-inset-bottom, 0px); backdrop-filter: blur(12px); }
 .dock-inner { width: min(100%, 620px); padding: 13px 16px 12px; margin: auto; }
 .amount-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 9px; }.amount-heading strong { font-size: 14px; font-weight: 800; }.amount-heading > span { font-size: 10px; font-weight: 700; color: #969daa; }
 .amount-choices { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
@@ -163,3 +154,33 @@ footer .install-button { min-height: 44px; padding: 10px 18px; border: 1px solid
 .install-help p { font-size: 12px; }
 footer .install-help button { min-height: 36px; font-weight: 700; color: var(--blue-dark); }
 .connection-notice { padding: 12px; background: #fff8e8; color: #76500f; border-radius: 12px; font-size: 13px; line-height: 1.5; }
+
+/* Put the coin and the action in the first viewport. */
+.coin-identity { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 14px; padding: 18px 20px; }
+.coin-identity-main { gap: 12px; }
+.coin-identity h1 { font-size: 21px; }
+.coin-symbol { display: inline-flex; align-items: center; gap: 6px; }
+.official-badge { display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; border-radius: 50%; background: #1683f8; color: #fff; }
+.official-badge svg { width: 12px; height: 12px; stroke-width: 3; }
+.coin-identity .brand-tagline { grid-column: 1; margin: 0; font-size: 14px; }
+.coin-identity .token-address-link { grid-column: 2; grid-row: 1 / 3; align-self: center; padding: 10px 0 10px 8px; font-size: 13px; }
+.inline-amount { display: flex; align-items: center; min-width: 0; padding: 0 10px; gap: 2px; border: 1px solid #dce3ed; border-radius: 12px; background: #f7f8fa; color: #647083; }
+.inline-amount.selected, .inline-amount:focus-within { border-color: var(--blue); background: var(--blue-light); color: var(--blue-dark); }
+.inline-amount input { width: 100%; min-width: 0; min-height: 44px; padding: 0; border: 0; outline: none; background: transparent; color: inherit; font-size: 16px; font-weight: 750; }
+.inline-amount input::placeholder { color: #647083; opacity: 1; }
+.inline-amount:focus-within { outline: 3px solid #79b9ff; outline-offset: 2px; }
+.amount-error, .market-warning { font-size: 13px; line-height: 1.5; color: #8d411d; margin: 8px 0; }
+.amount-heading > span { font-size: 12px; }
+.dock-fee-note { font-size: 12px; }
+.trade-buttons .buy { justify-content: center; }
+.save-account { margin-top: 18px; padding: 16px; border: 1px solid #c7e2ff; border-radius: 16px; background: var(--blue-light); }
+.save-account h3 { font-size: 18px; margin: 0 0 8px; }
+.save-account p { font-size: 14px; line-height: 1.5; color: #475e78; margin: 0 0 12px; }
+.connection-notice button { border: 0; background: none; color: #075aaf; text-decoration: underline; padding: 8px; font-weight: 700; }
+@media (max-width: 400px) {
+  .coin-identity { padding: 14px; gap: 7px 8px; }
+  .coin-identity h1 { font-size: 18px; letter-spacing: -.5px; }
+  .coin-identity .token-address-link { font-size: 12px; }
+  .inline-amount { padding: 0 6px; }
+  .dock-fee-note { font-size: 12px; }
+}
