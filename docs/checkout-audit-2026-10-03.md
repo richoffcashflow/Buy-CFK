@@ -19,7 +19,9 @@ The requested experience is the BuyCFK website: choose an amount, press Buy, pay
 | The chart captured vertical touch gestures | Permit vertical page scrolling and pinch zoom while retaining horizontal price inspection. |
 | Returning users could have checkout opened automatically | Restore accounts quietly, keep payment recovery behind Continue, and poll checkout only while its dialog is open. |
 
-The follow-up adds a blue Official CFK checkmark beside the coin symbol and Instagram, TikTok, and YouTube links at the bottom. Social destinations were cross-checked against [the creator's Linktree](https://linktr.ee/cashflowkey); its TikTok destination is `@cashflowkey`. The badge identifies this project's official token; it does not assert third-party endorsement.
+The follow-up adds a blue Official CFK checkmark beside the coin symbol and only the requested Instagram link, `@cashflowkeyy`, at the bottom. The Instagram destination was cross-checked against [the creator's Linktree](https://linktr.ee/cashflowkey). The badge identifies this project's official token; it does not assert third-party endorsement.
+
+The October 4 follow-up removes the remaining Telegram login option, styles, tracking handoff, and launch parameters. Existing funded authenticated accounts can link an email to the same user and wallet; inaccessible older accounts are directed to support. BotFather settings were not changed.
 
 ## Wallet and payment boundaries
 
@@ -32,7 +34,7 @@ The follow-up adds a blue Official CFK checkmark beside the coin symbol and Inst
 
 ## Verification and release status
 
-All 56 tests pass and `npm run build` succeeds locally. Automated DOM tests exercise amount selection, guest connection, payment verification, automatic coin purchase, account upgrade/retry, quiet refresh/account restoration, deliberate payment recovery, disabled guest checkout, sale review, and older payment recovery. Payment, Privy, and chain responses in these tests are fixtures, not live transactions. Existing server tests cover authentic payment signatures, fee accounting, duplicate settlement, and confirmed trade idempotence.
+All 57 tests pass and `npm run build` succeeds locally. Automated DOM tests exercise amount selection, guest connection, payment verification, automatic coin purchase, account upgrade/retry, email linking on an existing funded identity, quiet refresh/account restoration, deliberate payment recovery, disabled guest checkout, sale review, and older payment recovery. Payment, Privy, and chain responses in these tests are fixtures, not live transactions. Existing server tests cover authentic payment signatures, fee accounting, duplicate settlement, and confirmed trade idempotence.
 
 Vercel preview `cfk-iyn708fc6-cashflowkey.vercel.app` built successfully from commit `ec8c6f4`. Browser checks confirmed desktop rendering, inline custom amount entry, and the 375 × 667 layout with no horizontal overflow. Preview configuration reports buying and guest checkout disabled, so verification stopped before creating an identity or payment. The browser console showed extension-origin metadata errors, but no application-origin errors during these checks.
 

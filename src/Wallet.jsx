@@ -1,5 +1,5 @@
 import React, {useEffect, useMemo, useRef} from 'react';
-import {PrivyProvider, useGuestAccounts, useLogin, usePrivy} from '@privy-io/react-auth';
+import {PrivyProvider, useGuestAccounts, useLinkAccount, useLogin, usePrivy} from '@privy-io/react-auth';
 import {useCreateWallet, useWallets, useSignTransaction} from '@privy-io/react-auth/solana';
 import {createSolanaRpc, createSolanaRpcSubscriptions} from '@solana/kit';
 import {createWalletOnDemand} from './wallet-lifecycle.js';
@@ -25,12 +25,12 @@ function Bridge({onReady, onError, onCancel, activation, loginMethod, guestCheck
       return createOnDemand();
     };
   }, [user?.id]);
-  const {login} = useLogin({
-    onError: error => {
-      if (String(error).includes('exited_auth_flow')) { onCancel(); return; }
-      onError('Sign-in did not finish. If this email already belongs to another account, use a different email to save this purchase. Your current account has not been removed.');
-    }
-  });
+  const accountError = error => {
+    if (String(error).includes('exited_auth_flow')) { onCancel(); return; }
+    onError('Sign-in did not finish. If this email already belongs to another account, use a different email to save this purchase. Your current account has not been removed.');
+  };
+  const {login} = useLogin({onError: accountError});
+  const {linkEmail} = useLinkAccount({onError: accountError});
   useEffect(() => {
     if (activation <= 0 || !ready || authenticated || loginStarted.current === activation) return;
     loginStarted.current = activation;
@@ -40,22 +40,22 @@ function Bridge({onReady, onError, onCancel, activation, loginMethod, guestCheck
       createGuestAccount().catch(()=>{if(active)onError('Guest checkout could not connect. No payment has been taken. Please try again.');});
       return()=>{active=false;};
     }
-    login({loginMethods: [loginMethod === 'telegram' ? 'telegram' : 'email']});
+    login({loginMethods: ['email']});
   }, [ready, authenticated, login, activation, loginMethod, createGuestAccount, onError, guestCheckoutEnabled]);
   useEffect(() => {
     if (!authenticated || !walletsReady || !user?.id) return;
-    const key = user.id + ':' + (wallet?.address || 'no-wallet') + ':' + Boolean(user.isGuest);
+    const key = user.id + ':' + (wallet?.address || 'no-wallet') + ':' + Boolean(user.isGuest) + ':' + Boolean(user.email?.address);
     if (lastAccount.current === key) return;
     lastAccount.current = key;
     const userId = user.id;
     // Sign-in is ready even when the user has never funded or created a wallet.
-    onReady({userId, isGuest:Boolean(user.isGuest), upgrade:()=>login({loginMethods:['email']}), address: wallet?.address || null, getAccessToken: () => sdk.current.getAccessToken(), ensureWallet, sign: async base64 => {
+    onReady({userId, isGuest:Boolean(user.isGuest), needsEmail:!user.email?.address, upgrade:()=>user.isGuest?login({loginMethods:['email']}):linkEmail(), address: wallet?.address || null, getAccessToken: () => sdk.current.getAccessToken(), ensureWallet, sign: async base64 => {
       if (sdk.current.userId !== userId || !sdk.current.wallet) throw new Error('Your coin account is reconnecting. Please try again.');
       const transaction = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
       const {signedTransaction} = await sdk.current.signTransaction({transaction, wallet: sdk.current.wallet, chain: 'solana:mainnet', options: {uiOptions: {showWalletUIs: false}}});
       return btoa(String.fromCharCode(...signedTransaction));
     }});
-  }, [authenticated, walletsReady, user?.id, user?.isGuest, wallet?.address, ensureWallet, onReady, login]);
+  }, [authenticated, walletsReady, user?.id, user?.isGuest, user?.email?.address, wallet?.address, ensureWallet, onReady, login, linkEmail]);
   useEffect(() => {
     // Do not interrupt a person reading an email or approving a sign-in.
     if (!activation || authenticated || (ready && loginMethod !== 'guest')) return;
@@ -72,7 +72,7 @@ function Bridge({onReady, onError, onCancel, activation, loginMethod, guestCheck
 export default function Wallet({appId, onReady, onError, onCancel, activation, loginMethod, guestCheckoutEnabled}) {
   return <PrivyProvider appId={appId} config={{
     appearance: {theme: 'light', accentColor: '#1683f8', logo: '/assets/cfk-coin.png', walletChainType: 'solana-only'},
-    loginMethods: ['email', 'telegram'],
+    loginMethods: ['email'],
     embeddedWallets: {ethereum: {createOnLogin: 'off'}, solana: {createOnLogin: 'off'}},
     solana: {rpcs: {'solana:mainnet': {rpc: createSolanaRpc(`${location.origin}/api/rpc`), rpcSubscriptions: createSolanaRpcSubscriptions('wss://api.mainnet-beta.solana.com')}}}
   }}><Bridge onReady={onReady} onError={onError} onCancel={onCancel} activation={activation} loginMethod={loginMethod} guestCheckoutEnabled={guestCheckoutEnabled}/></PrivyProvider>;

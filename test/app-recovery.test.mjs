@@ -50,6 +50,8 @@ test('returning users can sign in without starting a buy; provider gets an unobs
   const f=await fixture({buyEnabled:false});
   try{
     assert.equal(globalThis.cfkWalletProps,undefined);
+    assert.deepEqual([...document.querySelectorAll('.creator-socials a')].map(a=>a.href),['https://www.instagram.com/cashflowkeyy/']);
+    assert.doesNotMatch(f.text(),/Telegram|TikTok|YouTube/);
     await f.click('Sign in to your account');
     assert.equal(document.querySelectorAll('[role="dialog"]').length,1);
     assert.equal(document.querySelector('[role="dialog"]').getAttribute('aria-label'),'Mock secure sign-in');
@@ -58,6 +60,23 @@ test('returning users can sign in without starting a buy; provider gets an unobs
     assert.equal(document.querySelector('[role="dialog"]'),null);
     await f.signIn();
     assert.match(f.text(),/CFK value\$0\.00/);
+    assert.ok(!f.requests.some(r=>/ramp|trade/.test(r.url)));
+  }finally{await f.close();}
+});
+
+test('an existing funded account can add email without replacing its identity or starting a payment',async()=>{
+  const f=await fixture({position:{tokens:25,valueUsd:25,availableUsd:0}});
+  try{
+    f.bridge.needsEmail=true;
+    await f.signIn();
+    assert.match(document.querySelector('.save-account').textContent,/Save your account/);
+    assert.doesNotMatch(document.querySelector('.save-account').textContent,/expires after 30 days/);
+    await f.click('Save with email');
+    assert.equal(f.upgrades(),1);
+    await act(async()=>globalThis.cfkWalletProps.onReady({...f.bridge,needsEmail:false}));
+    assert.equal(document.querySelector('.save-account'),null);
+    assert.match(f.text(),/CFK value\$25\.00/);
+    assert.equal(f.signs(),0);
     assert.ok(!f.requests.some(r=>/ramp|trade/.test(r.url)));
   }finally{await f.close();}
 });

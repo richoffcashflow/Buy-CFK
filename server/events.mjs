@@ -6,7 +6,7 @@ const allowed=['utm_source','utm_medium','utm_campaign','utm_content','utm_term'
 export function cleanAttribution(value){return Object.fromEntries(allowed.filter(k=>typeof value?.[k]==='string'&&value[k].length<=1024).map(k=>[k,value[k]]));}
 export async function session(req,body){
   const consent=body.consent==='granted'&&req.headers['sec-gpc']!=='1';
-  const candidate=body.startParam?.startsWith('s_')?body.startParam.slice(2):body.sessionId;
+  const candidate=body.sessionId;
   const existing=/^[a-f0-9]{32}$/.test(candidate||'')?(await database().query('SELECT * FROM cfk_sessions WHERE id=$1 AND expires_at>now()',[candidate])).rows[0]:null;
   const id=existing?.id||randomBytes(16).toString('hex');
   const attribution=consent?{...(existing?.attribution||{}),...cleanAttribution(body.attribution)}:{};
@@ -14,7 +14,7 @@ export async function session(req,body){
   const ip=consent?String(req.headers['x-forwarded-for']||req.socket?.remoteAddress||'').split(',')[0].slice(0,80):null;
   const ua=consent?String(req.headers['user-agent']||'').slice(0,1024):null;
   await database().query('INSERT INTO cfk_sessions(id,consent,attribution,source_url,ip,user_agent) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(id) DO UPDATE SET consent=$2,attribution=$3,ip=$5,user_agent=$6',[id,consent,attribution,sourceUrl,ip,ua]);
-  return {id,consent,telegramUrl:process.env.TELEGRAM_BOT_USERNAME?`https://t.me/${process.env.TELEGRAM_BOT_USERNAME}?startapp=s_${id}`:null};
+  return {id,consent};
 }
 export async function getSession(id,c=database()){if(!/^[a-f0-9]{32}$/.test(id||''))throw appError('Your session is not ready. Please refresh.',401);const s=(await c.query('SELECT * FROM cfk_sessions WHERE id=$1 AND expires_at>now()',[id])).rows[0];if(!s)throw appError('Your session expired. Please refresh.',401);return s;}
 export async function recordEvent(c,{id,sessionId,name,valueCents=0,metadata={}}){

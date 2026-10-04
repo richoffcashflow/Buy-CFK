@@ -34,7 +34,7 @@ Provision a separate PostgreSQL database (Supabase is supported). Put its server
 
 Set `APP_URL` to the new production origin and a random `CRON_SECRET`. The current Vercel workspace is on Hobby, so `vercel.json` intentionally has no cron schedule. For production, schedule authenticated `/api/jobs` calls at least every five minutes using Supabase Cron, or run `npm run worker` on a persistent Railway service with the same server environment. Vercel Pro can alternatively schedule `/api/jobs` every five minutes. The worker reconciles submitted transactions and payments and retries conversion delivery. Supabase Cron is provisioned to call `/api/jobs` every five minutes using a Vault-held secret. Do not disable it for a launch with measurement enabled.
 
-Create/configure the Privy app with Guest accounts, email login, and the exact website origins. Keep automatic wallet creation off; Solana wallets are created explicitly at checkout. Telegram login remains available only to recover older accounts. Set `PRIVY_APP_ID`, `PRIVY_APP_SECRET`, and `PRIVY_VERIFICATION_KEY` on Vercel. Private keys remain in the user-authorized wallet flow.
+Create/configure the Privy app with Guest accounts, email login, and the exact website origins. Keep automatic wallet creation off; Solana wallets are created explicitly at checkout. All visible sign-in and account recovery use email. Existing authenticated accounts can link an email without replacing their identity or wallet. Set `PRIVY_APP_ID`, `PRIVY_APP_SECRET`, and `PRIVY_VERIFICATION_KEY` on Vercel. Private keys remain in the user-authorized wallet flow.
 
 Set a production `SOLANA_RPC_URL` and `BIRDEYE_API_KEY`. Pump’s official transaction service builds unsigned buy/sell transactions with integer atomic amounts. The app validates and simulates it, Privy signs it, and the server stores its signature before broadcasting. Verify a CFK buy and sell route, liquidity, quote, network reserve, and wallet signing before setting `TRADING_ENABLED=true`. A buy requires finalized on-chain confirmation matching the server-prepared transaction and actual CFK balance movement.
 
@@ -72,7 +72,7 @@ This is a connection diagnostic, **not an activated Stripe checkout**. Stripe's 
 References: [Stripe web onramp](https://docs.stripe.com/crypto/onramp/embedded), [quote API](https://docs.stripe.com/api/crypto/onramp_quotes/retrieve), [session parameters](https://docs.stripe.com/api/crypto/onramp_sessions/create).
 
 1. Vercel, a separate Supabase database, and the scheduled worker are provisioned. Verify all remaining production secrets.
-2. Privy app/domain/Telegram setup and a verified CFK data and trading route.
+2. Privy Guest accounts, email login, and website-origin setup and a verified CFK data and trading route.
 3. Approved on/off-ramp provider supporting embedded checkout, Solana funding/payout, and the disclosed 15% fee in both directions. See [the provider adapter contract](docs/provider-adapter.md).
 4. Ad account IDs/credentials, test-event verification, and company approval of the legal copy and fees.
 5. End-to-end sandbox and controlled live verification of buy, partial buy, sell, cash payout, rejected wallet signatures, delayed webhooks, consent withdrawal, and duplicate provider notifications.
@@ -81,7 +81,7 @@ Do not turn on real-money flags until those dependencies are verified. The app c
 
 ## Simple purchase flow
 
-The default is Buy $20. Choose $20, $50, $100, or type a custom amount directly, then press Buy. These are the two app actions before payment; Stripe may require payment details, identity verification, or bank approval. A new buyer receives a background guest session without entering an email or using Telegram. After verified funding and the CFK purchase, Save my account upgrades that same guest identity using email. Existing buyers can sign in separately. The creator card retains the original photo and links to Instagram, TikTok, and YouTube from the creator's Linktree. The blue check beside $CFK identifies the official Cashflowkey token.
+The default is Buy $20. Choose $20, $50, $100, or type a custom amount directly, then press Buy. These are the two app actions before payment; Stripe may require payment details, identity verification, or bank approval. A new buyer receives a background guest session without entering an email or using Telegram. After verified funding and the CFK purchase, Save my account upgrades that same guest identity using email. Existing buyers can sign in separately. The creator card retains the original photo and links only to the creator’s Instagram, @cashflowkeyy. The blue check beside $CFK identifies the official Cashflowkey token.
 
 Verified funding triggers the CFK purchase automatically while the checkout is open. One payment has one order. Visiting or refreshing the page never opens checkout or starts a payment automatically; saved payments offer Continue payment or trade. Sell opens a review before signing and limits the initial selection to the position's value. Sale proceeds remain in SOL; cash payouts require a separately approved and enabled provider.
 
@@ -97,13 +97,11 @@ The current on-ramp adapter requires a destination wallet address when it create
 
 There is no automatic user or wallet deletion on abandonment. Privy's [standard pricing](https://www.privy.io/pricing) counts authenticated users with an active session in the last 30 days, including users without funded wallets. Deleting an account must not be assumed to erase billing activity. Privy's [user deletion API](https://docs.privy.io/user-management/users/managing-users/deleting-users) archives and disassociates wallets instead of deleting them, and restoring access is not guaranteed. Pending payments and existing funded accounts retain their identity and address.
 
-`TELEGRAM_BOT_TOKEN` is server-only. `TELEGRAM_BOT_USERNAME` has no `@`. Both also need to be configured with the matching Telegram bot in Privy.
-
 ### Website and older accounts
 
-`buycfk.com`, `www.buycfk.com`, and `buy-cfk.vercel.app` render the app directly. The Telegram redirect and blocking Telegram SDK are removed. The API accepts these exact verified production aliases when `APP_URL` is one of them; arbitrary origins and unrelated previews remain rejected. Configure an isolated preview's own `APP_URL` to test authenticated POST routes there. Explicit sandbox links retain their fixed allowlisted destination.
+`buycfk.com`, `www.buycfk.com`, and `buy-cfk.vercel.app` render the app directly. The Telegram redirect and blocking Telegram SDK are removed. The API accepts these exact verified production aliases when `APP_URL` is one of them; arbitrary origins and unrelated previews remain rejected. Configure an isolated preview's own `APP_URL` to test authenticated POST routes there. Explicit `?checkout_test=stripe` sandbox links retain their fixed allowlisted destination. Legacy Telegram launch parameters no longer redirect the site.
 
-Browser sessions are scoped to their origin. Keep old holders' login method available under Recover an older account. New purchases use guest checkout, followed by email recovery. Privy guest sessions last 30 days; a funded guest is prompted to save access, and the app never logs it out or deletes it after a failed upgrade. Privy does not merge a guest into an existing account, so an already-used email may require a different email for that purchase.
+Browser sessions are scoped to their origin. The site contains no Telegram SDK, links, sign-in option, or Telegram session handoff. A funded authenticated account without email can add one to the same identity and wallet. Older holders who cannot access their session are directed to support; changing login methods does not automatically merge or migrate their accounts. New purchases use guest checkout, followed by email recovery. Privy guest sessions last 30 days; a funded guest is prompted to save access, and the app never logs it out or deletes it after a failed upgrade. Privy does not merge a guest into an existing account, so an already-used email may require a different email for that purchase.
 
 ## Route verification status
 
@@ -113,7 +111,7 @@ The unlinked, no-index `/layout-preview.html` page renders the real app at two m
 
 Sources: [Pump transaction API](https://github.com/pump-fun/pump-fun-skills/tree/main/swap), [Pump.fun protocol IDLs](https://github.com/pump-fun/pump-public-docs), [Solana account queries](https://solana.com/docs/rpc/http/getprogramaccounts).
 
-Returning-user sign-in uses email. The app releases its own dialog before opening Privy, keeps transaction dialogs below provider overlays, and does not time out while someone is reading an email. Telegram remains an explicit legacy recovery option; new purchases do not depend on Telegram.
+Returning-user sign-in uses email. The app releases its own dialog before opening Privy, keeps transaction dialogs below provider overlays, and does not time out while someone is reading an email. Sign-in offers email only. Telegram bot configuration itself is managed separately and was not changed by this code update.
 
 
 ### Stripe embedded onramp
@@ -150,6 +148,6 @@ The test suite includes isolated DOM interaction tests. `npm test` runs tests se
 
 ## Public legal documents
 
-`/privacy` and `/terms` are directly addressable, unauthenticated HTML documents generated from the unchanged `src/Legal.jsx` copy. Explicit Vercel rewrites serve them before the app fallback, so marketing-domain legal visits never enter the Telegram launcher. They include return navigation and require no JavaScript or wallet login.
+`/privacy` and `/terms` are directly addressable, unauthenticated HTML documents generated from `src/Legal.jsx`. Explicit Vercel rewrites serve them before the app fallback, so marketing-domain legal visits never enter the Telegram launcher. They include return navigation and require no JavaScript or wallet login.
 
 Run `npm run legal:build` after changing the existing legal source. The build also regenerates these pages, and a regression test checks that the committed static documents match the source. Deploying the files is required before publishing these paths in partner applications; local existence alone does not make a URL live.
