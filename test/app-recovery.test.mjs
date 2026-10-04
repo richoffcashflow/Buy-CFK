@@ -10,12 +10,12 @@ const require=createRequire(import.meta.url);
 const output=await build({entryPoints:[new URL('../src/App.jsx',import.meta.url).pathname],bundle:true,write:false,format:'esm',platform:'node',plugins:[{name:'isolated-ui-fixtures',setup(b){
   b.onResolve({filter:/^(react|react-dom)$/},args=>({path:pathToFileURL(require.resolve(args.path)).href,external:true}));
   b.onResolve({filter:/\/(Wallet|PriceChart|StripeCheckout)\.jsx$/},args=>({path:args.path,namespace:'ui-fixture'}));
-  b.onLoad({filter:/.*/,namespace:'ui-fixture'},args=>({loader:'jsx',contents:args.path.endsWith('Wallet.jsx')?`import React from 'react'; export default function Wallet(props){globalThis.cfkWalletProps=props;return props.loginMethod==='guest'?null:<div role="dialog" aria-label="Mock secure sign-in">Mock secure sign-in</div>;}`:`export default function Fixture(){return null;}`}));
+  b.onLoad({filter:/.*/,namespace:'ui-fixture'},args=>({loader:'jsx',contents:args.path.endsWith('Wallet.jsx')?`import React from 'react'; export default function Wallet(props){globalThis.cfkWalletProps=props;return props.loginMethod==='guest'||props.activation===0?null:<div role="dialog" aria-label="Mock secure sign-in">Mock secure sign-in</div>;}`:`export default function Fixture(){return null;}`}));
   b.onResolve({filter:/\/tracking\.js$/},()=>({path:'tracking',namespace:'tracking-fixture'}));
   b.onLoad({filter:/.*/,namespace:'tracking-fixture'},()=>({contents:`export const captureAttribution=()=>{},getSession=async()=>({id:'test-session'}),track=async()=>{},setConsent=()=>{},getConsent=()=>'denied';`}));
 }}]});
 const {default:App}=await import('data:text/javascript;base64,'+Buffer.from(output.outputFiles[0].text).toString('base64'));
-async function fixture({pending,buyEnabled=false,withdrawEnabled=false,guestCheckoutEnabled=false,purchaseIntent,position={tokens:0,valueUsd:0,availableUsd:0},responses={}}={}){
+async function fixture({pending,accountSeen=false,buyEnabled=false,withdrawEnabled=false,guestCheckoutEnabled=false,purchaseIntent,position={tokens:0,valueUsd:0,availableUsd:0},responses={}}={}){
   const dom=new JSDOM('<div id="root"></div>',{url:'https://test.invalid/'});
   const originals=new Map();
   for(const [key,value] of Object.entries({window:dom.window,navigator:dom.window.navigator,document:dom.window.document,sessionStorage:dom.window.sessionStorage,localStorage:dom.window.localStorage,location:dom.window.location,ResizeObserver:class{observe(){}disconnect(){}},IS_REACT_ACT_ENVIRONMENT:true})){
@@ -23,6 +23,7 @@ async function fixture({pending,buyEnabled=false,withdrawEnabled=false,guestChec
   }
   if(purchaseIntent)dom.window.sessionStorage.setItem('cfk_purchase_intent',JSON.stringify(purchaseIntent));
   if(pending)dom.window.localStorage.setItem('cfk_pending',JSON.stringify(pending));
+  if(accountSeen)dom.window.localStorage.setItem('cfk_account_seen','1');
   const requests=[];const originalFetch=globalThis.fetch;
   globalThis.fetch=async(url,options)=>{
     requests.push({url,...options});
@@ -52,7 +53,10 @@ test('returning users can sign in without starting a buy; provider gets an unobs
     assert.equal(globalThis.cfkWalletProps,undefined);
     assert.deepEqual([...document.querySelectorAll('.creator-socials a')].map(a=>a.href),['https://www.instagram.com/cashflowkeyy/']);
     assert.doesNotMatch(f.text(),/Telegram|TikTok|YouTube/);
-    await f.click('Sign in to your account');
+    assert.equal(document.querySelector('.coin-identity h1').textContent,'Cashflowkey');
+    assert.equal(document.querySelector('.coin-identity .brand-account-label').textContent,'CFK');
+    assert.equal(document.querySelector('.header-sign-in').textContent,'Sign in');
+    await f.click('Sign in');
     assert.equal(document.querySelectorAll('[role="dialog"]').length,1);
     assert.equal(document.querySelector('[role="dialog"]').getAttribute('aria-label'),'Mock secure sign-in');
     assert.ok(!f.requests.some(r=>/ramp|trade/.test(r.url)));
@@ -61,6 +65,21 @@ test('returning users can sign in without starting a buy; provider gets an unobs
     await f.signIn();
     assert.match(f.text(),/CFK value\$0\.00/);
     assert.ok(!f.requests.some(r=>/ramp|trade/.test(r.url)));
+  }finally{await f.close();}
+});
+
+test('a remembered account restores quietly without opening login or starting a payment',async()=>{
+  const f=await fixture({accountSeen:true,buyEnabled:true,guestCheckoutEnabled:true});
+  try{
+    assert.equal(globalThis.cfkWalletProps.activation,0);
+    assert.equal(document.querySelector('[role="dialog"]'),null);
+    f.bridge.displayName='Taylor';
+    await act(async()=>globalThis.cfkWalletProps.onReady(f.bridge));
+    assert.match(document.querySelector('.account-welcome').textContent,/Hello, Taylor/);
+    assert.equal(document.querySelector('.header-sign-in'),null);
+    assert.ok(document.querySelector('.account-avatar'));
+    assert.ok(!f.requests.some(r=>/ramp|trade/.test(r.url)));
+    assert.equal(f.signs(),0);
   }finally{await f.close();}
 });
 
@@ -315,12 +334,12 @@ test('a smaller position can be sold without being rejected by the default $20 b
 });
 
 
-test('Cash Card stays a locked preview before selling and never starts payment or authentication',async()=>{
+test('CFK Card stays a locked preview before selling and never starts payment or authentication',async()=>{
   const f=await fixture({buyEnabled:true});
   try{
-    const card=[...document.querySelectorAll('button')].find(b=>b.getAttribute('aria-label')==='Cash Card, locked preview');
+    const card=[...document.querySelectorAll('button')].find(b=>b.getAttribute('aria-label')==='CFK Card, locked preview');
     await act(async()=>card.click());
-    assert.match(f.text(),/Meet Cash Card/);
+    assert.match(f.text(),/Meet CFK Card/);
     assert.match(document.querySelector('.cash-card-page').textContent,/Unlock after your first sale/);
     assert.equal(document.querySelector('.trade-dock'),null);
     assert.equal(globalThis.cfkWalletProps,undefined);
@@ -335,7 +354,7 @@ test('a confirmed sale unlocks only the setup stage, never a fake active card ba
   const f=await fixture({responses:{'/api/account/history':()=>({hasCompletedSale:true,items:[]})}});
   try{
     await f.signIn();
-    await act(async()=>document.querySelector('.account-navigation button[aria-label="Cash Card"]').click());
+    await act(async()=>document.querySelector('.account-navigation button[aria-label="CFK Card"]').click());
     assert.match(document.querySelector('.cash-card-page').textContent,/Your first sale is complete/);
     assert.match(document.querySelector('.cash-card-page').textContent,/Not activated/);
     assert.equal([...document.querySelectorAll('button')].find(b=>b.textContent==='Activation coming soon').disabled,true);

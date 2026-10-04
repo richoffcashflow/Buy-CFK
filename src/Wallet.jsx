@@ -72,7 +72,7 @@ function Bridge({onReady, onError, onCancel, activation, loginMethod, guestCheck
 }
 export default function Wallet({appId, onReady, onError, onCancel, activation, loginMethod, guestCheckoutEnabled}) {
   return <PrivyProvider appId={appId} config={{
-    appearance: {theme: 'light', accentColor: '#102a42', logo: '/assets/cashflow-logo-transparent.png', walletChainType: 'solana-only'},
+    appearance: {theme: 'light', accentColor: '#18b2eb', logo: '/assets/cashflow-user-logo.png', walletChainType: 'solana-only'},
     loginMethods: ['email'],
     embeddedWallets: {ethereum: {createOnLogin: 'off'}, solana: {createOnLogin: 'off'}},
     solana: {rpcs: {'solana:mainnet': {rpc: createSolanaRpc(`${location.origin}/api/rpc`), rpcSubscriptions: createSolanaRpcSubscriptions('wss://api.mainnet-beta.solana.com')}}}
