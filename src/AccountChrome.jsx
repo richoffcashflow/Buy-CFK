@@ -24,7 +24,7 @@ export default function CashCardPreview({saleCompleted, name, canSell, onSell, o
     <div className="cash-card-heading"><div><span className="account-eyebrow">YOUR EVERYDAY CARD</span><h2 id="cash-card-title">Meet CFK Card.</h2></div><span className="card-state"><AccountIcon name="lock"/>{saleCompleted ? 'Not activated' : 'Locked'}</span></div>
     <p className="cash-card-intro">Your next step from CFK to everyday spending.</p>
     <div className="cash-card-art" role="img" aria-label="CFK Card design preview, not activated">
-      <div className="cash-card-art-top"><span>CASHFLOWKEY</span><img src="/assets/cashflow-logo-light.png" alt="" width="52" height="52"/></div>
+      <div className="cash-card-art-top"><span>CASHFLOWKEY</span><img src="/assets/cashflow-logo-transparent.png" alt="" width="52" height="52"/></div>
       <div className="cash-card-chip" aria-hidden="true"><i/><i/><i/></div>
       <div className="cash-card-digits" aria-hidden="true">•••• <span>••••</span> <span>••••</span> ••••</div>
       <div className="cash-card-art-bottom"><span>{name || 'YOUR NAME'}</span><span>CFK CARD</span></div>
