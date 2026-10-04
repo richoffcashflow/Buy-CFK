@@ -1,4 +1,5 @@
 import {accountHistory} from '../server/account-history.mjs';
+import {saveAccountProfile} from '../server/account-profile.mjs';
 import {publicConfig,appError} from '../server/core.mjs';
 import {getMarket,getChart,getActivity,position,rpc,snapshotMarket} from '../server/market.mjs';
 import {session,browserEvent,rateLimit,flushEvents} from '../server/events.mjs';
@@ -51,6 +52,7 @@ export default async function handler(req,res){
       return reply({jsonrpc:'2.0',id:body.id??1,result:await rpc(body.method,body.params||[])});
     }
     const user=await authenticate(req,body.wallet);
+    if(path==='/account/profile')return reply(await saveAccountProfile(user,body));
     if(path==='/ramp/preflight')return reply(rampPreflight(body));
     if(path==='/trade/prepare')return reply(await prepareTrade(user,body));
     if(path==='/trade/submit')return reply(await submitTrade(user,body));
