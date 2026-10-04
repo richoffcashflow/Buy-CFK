@@ -1,5 +1,6 @@
 import {accountHistory} from '../server/account-history.mjs';
 import {saveAccountProfile} from '../server/account-profile.mjs';
+import {accountAccess} from '../server/account-access.mjs';
 import {publicConfig,appError} from '../server/core.mjs';
 import {getMarket,getChart,getActivity,position,rpc,snapshotMarket} from '../server/market.mjs';
 import {session,browserEvent,rateLimit,flushEvents} from '../server/events.mjs';
@@ -27,6 +28,7 @@ export default async function handler(req,res){
       if(path==='/activity'){res.setHeader('Cache-Control','public,s-maxage=20');return reply(await getActivity());}
       if(path==='/position')return reply(await position(url.searchParams.get('wallet')));
       if(path==='/account/history'){const user=await authenticate(req);return reply(await accountHistory(user));}
+      if(path==='/account/access'){const user=await authenticate(req);return reply(await accountAccess(user));}
       if(path==='/ramp/status'){const user=await authenticate(req);return reply(await rampStatus(user,url.searchParams.get('id')));}
       if(path==='/jobs'){
         if(!process.env.CRON_SECRET||req.headers.authorization!==`Bearer ${process.env.CRON_SECRET}`)throw appError('Unauthorized.',401);

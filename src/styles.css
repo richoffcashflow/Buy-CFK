@@ -188,6 +188,8 @@ footer { text-align: center; padding: 25px 10px 18px; font-size: 11px; line-heig
 [hidden] { display: none !important; }
 #root { padding-bottom: 0; }
 .app-frame { min-height: 100dvh; padding-bottom: calc(var(--dock-height) + var(--nav-height) + 18px); }
+.app-frame.single-view { --nav-height: 0px; padding-bottom: calc(var(--dock-height) + env(safe-area-inset-bottom, 0px) + 18px); }
+.single-view .trade-dock { padding-bottom: env(safe-area-inset-bottom, 0px); }
 .app-frame.card-view { padding-bottom: calc(var(--nav-height) + 18px); }
 .app { --page-top-gap: 24px; max-width: 480px; min-height: calc(100dvh - var(--nav-height)); padding: calc(var(--page-top-gap) + env(safe-area-inset-top, 0px)) 24px 0; background: #fff; }
 .coin-identity { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; padding: 0; margin: 0 0 27px; background: #fff; color: #102a42; border: 0; border-radius: 0; box-shadow: none; }
@@ -195,7 +197,6 @@ footer { text-align: center; padding: 25px 10px 18px; font-size: 11px; line-heig
 .coin-identity-main > img { width: 42px; height: 42px; background: transparent; border-radius: 0; object-fit: contain; }
 .coin-identity h1 { font-size: 20px; font-weight: 650; letter-spacing: -.6px; margin: 0 0 5px; white-space: nowrap; }
 .coin-identity .brand-account-label { font-size: 9px; letter-spacing: 1.8px; color: #718496; font-weight: 550; }
-.header-sign-in { flex-shrink: 0; min-height: 40px; padding: 10px 14px; border: 0; border-radius: 10px; background: var(--blue); color: #fff; font-size: 12px; font-weight: 600; white-space: nowrap; }.header-sign-in:hover { background: #027dcc; }
 .account-avatar { display: grid; place-items: center; flex-shrink: 0; width: 37px; height: 37px; padding: 9px; border: 0; border-radius: 50%; background: #eff4f8; color: #52728c; font-size: 13px; font-weight: 650; }
 .account-avatar svg { width: 17px; height: 17px; }
 .account-welcome { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 28px; }
@@ -248,6 +249,7 @@ h2 { font-size: 17px; letter-spacing: -.3px; font-weight: 650; }
 footer { color: #718396; padding-left: 0; padding-right: 0; }footer nav { gap: 12px; }footer p, footer a, footer button { font-size: 10px; }
 .profile-form p { font-size: 13px; line-height: 1.6; color: #63788e; }.profile-form label { font-size: 12px; display: block; margin: 20px 0 9px; }.profile-form input { width: 100%; padding: 14px; border: 1px solid #dce5ed; border-radius: 11px; background: #fff; color: #102a42; margin-bottom: 20px; font-size: 16px; }.profile-form [role=alert] { color: #a35057; }
 .account-eyebrow { font-size: 9px; font-weight: 600; color: #718396; letter-spacing: 1.5px; }.cash-card-heading { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-top: 35px; }.cash-card-heading h2 { margin: 12px 0 0; font-size: 31px; letter-spacing: -1.1px; font-weight: 550; }.card-state { display: inline-flex; gap: 5px; align-items: center; font-size: 10px; color: #647e93; border-radius: 6px; background: #f0f4f7; padding: 6px 8px; white-space: nowrap; }.card-state svg { width: 12px; height: 12px; }
+.card-back { display: block; width: 100%; min-height: 44px; margin-top: 8px; border: 0; background: transparent; color: #537087; font-size: 12px; }
 .cash-card-intro { color: #718396; font-size: 13px; line-height: 1.6; margin: 12px 0 27px; }.cash-card-art { aspect-ratio: 1.586; width: 100%; background: linear-gradient(145deg, #fff 48%, #f5faff); color: #102a42; padding: 24px; border: 1px solid #e2eaf1; border-radius: 18px; box-shadow: 0 14px 28px -15px #102a4230, 0 2px 5px #102a4204; }
 .cash-card-art-top { display: flex; justify-content: space-between; align-items: flex-start; }.cash-card-art-top > span { font-size: 12px; letter-spacing: 2.3px; padding-top: 7px; font-weight: 550; }.cash-card-art-top img { width: 48px; height: 48px; object-fit: contain; }
 .cash-card-chip { display: flex; height: 25px; width: 33px; border: 1px solid #8ba3b8; border-radius: 5px; margin-top: 8px; overflow: hidden; background: #edf3f7; }.cash-card-chip i { flex: 1; border-right: 1px solid #8ba3b8; }.cash-card-chip i:nth-child(2) { border-top: 1px solid #8ba3b8; border-bottom: 1px solid #8ba3b8; margin: 5px 0; }

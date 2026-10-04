@@ -45,7 +45,7 @@ function Bridge({onReady, onError, onCancel, activation, loginMethod, guestCheck
   }, [ready, authenticated, login, activation, loginMethod, createGuestAccount, onError, guestCheckoutEnabled]);
   useEffect(() => {
     if (!authenticated || !walletsReady || !user?.id) return;
-    const key = user.id + ':' + (wallet?.address || 'no-wallet') + ':' + Boolean(user.isGuest) + ':' + Boolean(user.email?.address) + ':' + displayName;
+    const key = user.id + ':' + (wallet?.address || 'no-wallet') + ':' + Boolean(user.isGuest) + ':' + (user.email?.address || '') + ':' + displayName;
     if (lastAccount.current === key) return;
     lastAccount.current = key;
     const userId = user.id;
