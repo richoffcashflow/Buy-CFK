@@ -34,6 +34,16 @@ The October 4 follow-up removes the remaining Telegram login option, styles, tra
 
 ## Verification and release status
 
+## Production launch
+
+Production deployment `dpl_qyUPTS92nDxP5L8yjqQ1ZYa3qYxD` reached READY from main commit `02286810cc43054b08bf27480d134d59250262be`. `https://buycfk.com/` resolves to `https://www.buycfk.com/` and renders the standalone website. Live `/api/config` returns HTTP 200 with `guestCheckoutEnabled=true`, `buyEnabled=true`, and `withdrawEnabled=false`.
+
+Browser verification confirmed the enabled Buy $20 button, official token badge, Instagram as the only social link, no Telegram links, and no checkout dialog on page load. No identity, wallet, payment, or trade was created during the check. All 58 fixture tests and the build passed before release. The first runtime scan returned five Node DEP0169 deprecation warnings on successful HTTP 200 requests; it showed no failed application requests. No Vercel drains are configured, so this was a point-in-time log check rather than continuous error monitoring.
+
+The guest-dashboard change is owner-confirmed. A controlled live checkout, provider identity checks, and email account saving have not been exercised on production in this session. Cash withdrawals remain disabled and require a separate payout integration.
+
+![Live standalone BuyCFK website](standalone-live-20261004.jpg)
+
 All 58 tests pass and `npm run build` succeeds locally. Automated DOM tests exercise amount selection, guest connection, payment verification, automatic coin purchase, account upgrade/retry, email linking on an existing funded identity, quiet refresh/account restoration, deliberate payment recovery, disabled guest checkout, sale review, and older payment recovery. Payment, Privy, and chain responses in these tests are fixtures, not live transactions. Existing server tests cover authentic payment signatures, fee accounting, duplicate settlement, and confirmed trade idempotence.
 
 Vercel preview `cfk-iyn708fc6-cashflowkey.vercel.app` built successfully from commit `ec8c6f4`. Browser checks confirmed desktop rendering, inline custom amount entry, and the 375 × 667 layout with no horizontal overflow. Preview configuration reports buying and guest checkout disabled, so verification stopped before creating an identity or payment. The browser console showed extension-origin metadata errors, but no application-origin errors during these checks.
