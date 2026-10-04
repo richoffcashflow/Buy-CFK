@@ -186,7 +186,7 @@ footer .install-help button { min-height: 36px; font-weight: 700; color: var(--b
 }
 
 /* Cashflow account theme: shared by the coin, account and payment surfaces. */
-:root { color: #102a42; background: #f6f8fb; --blue: #18b2eb; --blue-dark: #12689c; --blue-light: #eaf7ff; --line: #e5ebf0; --muted: #718396; --nav-height: calc(66px + env(safe-area-inset-bottom, 0px)); }
+:root { color: #102a42; background: #f6f8fb; --blue: #028de3; --blue-dark: #12689c; --blue-light: #eaf7ff; --line: #e5ebf0; --muted: #718396; --nav-height: calc(66px + env(safe-area-inset-bottom, 0px)); }
 [hidden] { display: none !important; }
 #root { padding-bottom: 0; }
 .app-frame { min-height: 100dvh; padding-bottom: calc(var(--dock-height) + var(--nav-height) + 18px); }
@@ -197,7 +197,7 @@ footer .install-help button { min-height: 36px; font-weight: 700; color: var(--b
 .coin-identity-main > img { width: 42px; height: 42px; background: transparent; border-radius: 0; object-fit: contain; }
 .coin-identity h1 { font-size: 20px; font-weight: 650; letter-spacing: -.6px; margin: 0 0 5px; white-space: nowrap; }
 .coin-identity .brand-account-label { font-size: 9px; letter-spacing: 1.8px; color: #718496; font-weight: 550; }
-.header-sign-in { flex-shrink: 0; min-height: 40px; padding: 10px 14px; border: 0; border-radius: 10px; background: var(--blue); color: #fff; font-size: 12px; font-weight: 600; white-space: nowrap; }.header-sign-in:hover { background: #0da3db; }
+.header-sign-in { flex-shrink: 0; min-height: 40px; padding: 10px 14px; border: 0; border-radius: 10px; background: var(--blue); color: #fff; font-size: 12px; font-weight: 600; white-space: nowrap; }.header-sign-in:hover { background: #027dcc; }
 .account-avatar { display: grid; place-items: center; flex-shrink: 0; width: 37px; height: 37px; padding: 9px; border: 0; border-radius: 50%; background: #eff4f8; color: #52728c; font-size: 13px; font-weight: 650; }
 .account-avatar svg { width: 17px; height: 17px; }
 .account-welcome { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 28px; }
@@ -235,8 +235,8 @@ h2 { font-size: 17px; letter-spacing: -.3px; font-weight: 650; }
 .activity-badge { font-weight: 450; }.activity-status { padding: 11px 0; background: none; border: 0; margin: 7px 0 0; font-weight: 450; font-size: 11px; }.activity li { padding: 15px 0; }
 .activity li strong { font-size: 12px; font-weight: 550; }.activity-icon { background: #edf5f1; color: #57816e; border-radius: 10px; }.activity-icon.sell { background: #f7f0f1; color: #a6757c; }
 .source-note { font-size: 10px; color: #718396; }.creator-card { border-radius: 16px; box-shadow: none; margin-top: 26px; }.creator-photo { height: 220px; }.creator-body { padding: 20px; }.creator-body h2 { font-size: 23px; font-weight: 600; letter-spacing: -.5px; }.brand-eyebrow { font-size: 9px; font-weight: 600; color: #718396; }.creator-socials a { font-weight: 550; background: #f2f5f8; }
-.primary { background: var(--blue); color: #fff; font-weight: 650; font-size: 14px; border-radius: 12px; min-height: 50px; }.primary:hover { background: #0da3db; }.primary.sell { background: var(--blue); border-color: transparent; color: #fff; }.primary.sell:hover { background: #0da3db; }
-.secondary { font-size: 13px; font-weight: 600; background: var(--blue); color: #fff; border-color: transparent; border-radius: 12px; padding: 14px; }.secondary:hover { background: #0da3db; }.save-account { background: #f4f7fa; border-color: #e4ebf1; border-radius: 14px; }.save-account h3 { font-size: 16px; font-weight: 600; }.save-account p { font-size: 12px; }.account-history { font-size: 12px; }.account-history summary { font-weight: 550; }
+.primary { background: var(--blue); color: #fff; font-weight: 650; font-size: 14px; border-radius: 12px; min-height: 50px; }.primary:hover { background: #027dcc; }.primary.sell { background: var(--blue); border-color: transparent; color: #fff; }.primary.sell:hover { background: #027dcc; }
+.secondary { font-size: 13px; font-weight: 600; background: var(--blue); color: #fff; border-color: transparent; border-radius: 12px; padding: 14px; }.secondary:hover { background: #027dcc; }.save-account { background: #f4f7fa; border-color: #e4ebf1; border-radius: 14px; }.save-account h3 { font-size: 16px; font-weight: 600; }.save-account p { font-size: 12px; }.account-history { font-size: 12px; }.account-history summary { font-weight: 550; }
 .trade-dock { width: min(100%, 480px); left: 50%; right: auto; transform: translateX(-50%); bottom: var(--nav-height); padding-bottom: 0; border: 1px solid #e8edf2; border-bottom: 0; border-radius: 18px 18px 0 0; box-shadow: 0 -8px 25px #102a4205; background: #fffffff5; }
 .dock-inner { width: 100%; padding: 14px 22px 16px; }.amount-heading { margin-bottom: 11px; }.amount-heading strong { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; font-weight: 600; color: #677e93; }.amount-heading > span { font-size: 10px; font-weight: 450; }
 .amount-choices { margin-bottom: 12px; gap: 8px; }.amount-choices button { font-size: 14px; font-weight: 550; min-height: 42px; background: #fff; border-radius: 9px; border-color: #e3eaf0; color: #52708a; }.amount-choices button[aria-pressed=true] { color: #fff; border: 1px solid var(--blue); background: var(--blue); box-shadow: none; }
