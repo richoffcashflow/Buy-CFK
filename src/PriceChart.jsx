@@ -19,7 +19,7 @@ export default function PriceChart({points, message, loading, historyStart, onIn
   const path = visible.map((p, i) => `${i ? 'L' : 'M'}${x(p[0]).toFixed(2)},${y(p[4]).toFixed(2)}`).join(' ');
   const inspecting = selectedTime !== null && !!selected;
   const timeLabel = time => new Date(time * 1000).toLocaleString([], {
-    ...(end - start > 86400 ? {month: 'short', day: 'numeric'} : {}), hour: 'numeric', minute: '2-digit'
+    ...(new Date(start * 1000).toDateString() !== new Date(end * 1000).toDateString() ? {month: 'short', day: 'numeric'} : {}), hour: 'numeric', minute: '2-digit'
   });
   useEffect(() => { onInspect(inspecting ? selected : null); }, [inspecting, selected, onInspect]);
   useEffect(() => () => onInspect(null), [onInspect]);
@@ -61,14 +61,14 @@ export default function PriceChart({points, message, loading, historyStart, onIn
           onPointerCancel={() => setSelectedTime(null)}>
           <svg viewBox="0 0 560 210" preserveAspectRatio="none" aria-hidden="true">
             <defs><linearGradient id={gradient} x1="0" y1="0" x2="0" y2="1"><stop stopColor="var(--blue)" stopOpacity=".10"/><stop offset="100%" stopColor="var(--blue)" stopOpacity=".015"/></linearGradient></defs>
-            {[0, 70, 140, 210].map(tick => <line key={tick} x1="0" x2="560" y1={tick} y2={tick} stroke="var(--line)" vectorEffect="non-scaling-stroke"/>)}
+            {[0, 105, 210].map(tick => <line key={tick} x1="0" x2="560" y1={tick} y2={tick} stroke="var(--line)" vectorEffect="non-scaling-stroke"/>)}
             {visible.length > 1 && <><path d={`${path} L${x(visible.at(-1)[0])},210 L${x(visible[0][0])},210 Z`} fill={`url(#${gradient})`}/><path d={path} fill="none" stroke="var(--blue)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke"/></>}
             {selected && <><line x1="0" x2="560" y1={y(selected[4])} y2={y(selected[4])} stroke="var(--blue)" opacity=".45" strokeDasharray="3 4" vectorEffect="non-scaling-stroke"/>{inspecting && <line x1={x(selected[0])} x2={x(selected[0])} y1="0" y2="210" stroke="#92a1b1" strokeDasharray="4 4" vectorEffect="non-scaling-stroke"/>}</>}
           </svg>
           {selected && <span className="chart-dot" style={{left: `${x(selected[0]) / 5.6}%`, top: `${y(selected[4]) / 2.1}%`}}/>}
           {inspecting && <div className="chart-tooltip" style={{left: `${Math.max(27, Math.min(73, x(selected[0]) / 5.6))}%`}}><strong>{formatMoney(selected[4], true)}</strong><span>{timeLabel(selected[0])}</span></div>}
         </div>
-        <div className="chart-axis" aria-hidden="true">{[high, low + (high - low) * 2 / 3, low + (high - low) / 3, low].map((price, i) => <span key={i}>{formatMoney(price, true)}</span>)}</div>
+        <div className="chart-axis" aria-hidden="true">{[high, (high + low) / 2, low].map((price, i) => <span key={i}>{formatMoney(price, true)}</span>)}</div>
       </div>
       <div className="chart-dates"><span>{timeLabel(start)}</span><span>{timeLabel(end)}</span></div>
       <div className="chart-controls"><span>{data.length === 1 ? 'First price recorded' : 'Drag to explore price'}</span><div role="group" aria-label="Chart zoom">{inspecting && <button className="zoom-reset" onClick={() => setSelectedTime(null)}>Latest</button>}<button aria-label="Zoom out" disabled={!windowRange} onClick={() => zoom(2)}>−</button><button aria-label="Zoom in" disabled={visible.length < 3 || (end - start) <= (last - first) / 16} onClick={() => zoom(.5)}>+</button>{windowRange && <button className="zoom-reset" onClick={() => { setWindowRange(null); setSelectedTime(null); }}>Reset</button>}</div></div>
