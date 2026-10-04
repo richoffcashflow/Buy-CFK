@@ -10,6 +10,7 @@ import {database} from '../server/db.mjs';
 import {stripeWebhook} from '../server/stripe-payments.mjs';
 import {allowedRequestOrigin} from '../server/request-origin.mjs';
 import {guestCheckoutEnabled} from '../server/guest-checkout.mjs';
+import {measurementPolicy} from '../server/measurement-policy.mjs';
 export const config={api:{bodyParser:false},maxDuration:60};
 async function rawBody(req){if(typeof req.body==='string')return req.body;if(Buffer.isBuffer(req.body))return req.body.toString('utf8');if(req.body&&typeof req.body==='object')return JSON.stringify(req.body);const chunks=[];let length=0;for await(const chunk of req){length+=chunk.length;if(length>100000)throw appError('Request too large.',413);chunks.push(Buffer.from(chunk));}return Buffer.concat(chunks).toString('utf8');}
 const allowedRpc=new Set(['getAccountInfo','getBalance','getBlockHeight','getFeeForMessage','getLatestBlockhash','getMultipleAccounts','getSignatureStatuses','getTokenAccountBalance','getTokenAccountsByOwner','getTransaction','isBlockhashValid','simulateTransaction','sendTransaction']);
@@ -20,7 +21,7 @@ export default async function handler(req,res){
   const reply=(data,status=200)=>{res.statusCode=status;res.setHeader('Content-Type','application/json');res.end(JSON.stringify(data));};
   try{
     if(req.method==='GET'){
-      if(path==='/config'){const config=publicConfig();return reply({...config,guestCheckoutEnabled:guestCheckoutEnabled(config.privyAppId)});}
+      if(path==='/config'){const config=publicConfig();return reply({...config,measurement:measurementPolicy(req),guestCheckoutEnabled:guestCheckoutEnabled(config.privyAppId)});}
       if(path==='/market'){res.setHeader('Cache-Control','public,s-maxage=20');return reply(await getMarket());}
       if(path==='/chart'){res.setHeader('Cache-Control','public,s-maxage=30');return reply(await getChart(url.searchParams.get('range')||'1d'));}
       if(path==='/activity'){res.setHeader('Cache-Control','public,s-maxage=20');return reply(await getActivity());}

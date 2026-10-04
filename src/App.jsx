@@ -1,7 +1,7 @@
 import React,{lazy,Suspense,useCallback,useEffect,useId,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {api,formatMoney,formatNumber} from './utils.js';
-import {captureAttribution,getSession,track,setConsent,getConsent} from './tracking.js';
+import {configureMeasurement,getSession,track,setConsent,getConsent} from './tracking.js';
 import Legal from './Legal.jsx';
 import InstallApp from './InstallApp.jsx';
 import PriceChart from './PriceChart.jsx';
@@ -64,10 +64,10 @@ export default function App(){
   const refreshHistory=useCallback(async()=>{const b=bridgeRef.current;if(!b)return;try{const result=await api('/account/history',{token:await b.getAccessToken()});if(bridgeRef.current?.userId===b.userId){setHistory(result.items||[]);setHasCompletedSale(result.hasCompletedSale===true||(result.items||[]).some(item=>item.kind==='trade'&&item.action==='sell'&&item.status==='confirmed'));setHistoryError(false);}}catch{setHistoryError(true);}},[]);
   const refreshPosition=useCallback(async()=>{const b=bridgeRef.current;if(!b)return null;if(!b.address){setPosition({valueUsd:0,tokens:0,availableUsd:0});return null;}try{const next=await api('/position?wallet='+b.address);if(bridgeRef.current?.userId!==b.userId)return null;setPosition(next);if(next.tokens>0)setFlow(current=>current.step==='complete'&&current.side==='buy'&&!current.positionUpdated?{...current,positionUpdated:true}:current);return next;}catch{return null;}},[]);
   useEffect(()=>{if(validAmount(amount))durable.set('cfk_amount',amount);},[amount]);
-  const refreshConfig=useCallback(async()=>{setConfigError(false);try{const c=await api('/config');setConfig(c);getSession().then(()=>track('ViewContent',{trigger:'coin_page'},c)).catch(()=>{});}catch{setConfigError(true);}},[]);
+  const refreshConfig=useCallback(async()=>{setConfigError(false);try{const c=await api('/config');setConsentState(configureMeasurement(c));setConfig(c);getSession().then(()=>track('ViewContent',{trigger:'coin_page'},c)).catch(()=>{});}catch{setConfigError(true);}},[]);
   useEffect(()=>{const update=()=>setOnline(navigator.onLine!==false);window.addEventListener('online',update);window.addEventListener('offline',update);return()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update);};},[]);
   useEffect(()=>{
-    captureAttribution();refreshConfig();
+    refreshConfig();
   },[refreshConfig]);
   useEffect(()=>{
     let alive=true;const refresh=()=>{api('/market').then(d=>{if(alive){setMarket(d);setMarketError(false);}}).catch(()=>{if(alive)setMarketError(true);});api('/activity').then(d=>{if(alive)setActivity(d);}).catch(()=>{if(alive)setActivity({items:[],unavailable:true});});};
@@ -210,6 +210,7 @@ export default function App(){
     finally{setProfileBusy(false);}
   }
   const change=market?.change24h,changeText=change!=null?(change>=0?'+':'')+change.toFixed(2)+'%':'—';
+  const hasFundedAccount=position?.tokens>0||position?.availableUsd>0||(history||[]).some(item=>(item.kind==='payment'&&item.action==='onramp'&&item.status==='completed')||(item.kind==='trade'&&item.status==='confirmed'));
   return <div className={'app-frame '+(tab==='card'?'card-view':'coin-view')}>
     <main className="app">
       {!online&&<p className="connection-notice" role="status">You’re offline. Displayed prices may be out of date. Reconnect to use your account.</p>}
@@ -243,10 +244,11 @@ export default function App(){
         <div className="creator-body"><span className="brand-eyebrow">MEET THE CREATOR</span><h2 id="creator-heading">Cashflowkey</h2><p>Entrepreneur. Creator. Follow the person behind $CFK.</p><nav className="creator-socials" aria-label="Creator social profiles">{CREATOR_SOCIALS.map(social=><a key={social.name} href={social.url} target="_blank" rel="noopener noreferrer" aria-label={'Cashflowkey on '+social.name+' (opens in a new tab)'} title={social.name}><img src={'/assets/social-'+social.icon+'.svg'} width="19" height="19" alt=""/><span>{social.name}</span></a>)}</nav></div>
       </section>
       </div>
-      <footer><InstallApp/><p>Crypto can lose all its value. No returns are guaranteed.<br/>Free Crypto App LLC and related parties may hold or sell CFK.</p><nav aria-label="Legal"><button onClick={()=>setModal('disclosures')}>Disclosures</button><a href="/terms">Terms</a><a href="/privacy">Privacy</a><button onClick={()=>setModal('measurement')}>Privacy choices</button></nav><p>Operated by Free Crypto App LLC</p><a href="mailto:support@freecryptoapp.com">support@freecryptoapp.com</a></footer>
+      <footer><p>Crypto can lose all its value. No returns are guaranteed.<br/>Free Crypto App LLC and related parties may hold or sell CFK.</p><nav aria-label="Legal"><button onClick={()=>setModal('disclosures')}>Disclosures</button><a href="/terms">Terms</a><a href="/privacy">Privacy</a><button onClick={()=>setModal('measurement')}>Privacy choices</button></nav><p>Operated by Free Crypto App LLC</p><a href="mailto:support@freecryptoapp.com">support@freecryptoapp.com</a></footer>
     </main>
     {tab==='cfk'&&<TradeDock amount={amount} setAmount={setAmount} onBuy={()=>begin('buy')} onSell={()=>begin('sell',Math.min(Number(amount),Math.floor((position?.valueUsd||0)*100)/100))} busy={busy||!online} canSell={position?.tokens>0} openingSignIn={['sign-in','guest-connect'].includes(flow.step)} loading={!config&&!configError} unavailable={config?.checkout?.buyEnabled!==true} pending={pendingRef.current} onResume={recover} onWarm={warmWallet}/>}
     <AccountNavigation tab={tab} onChange={changeTab} saleCompleted={hasCompletedSale} disabled={busy||profileBusy}/>
+    <InstallApp accountId={account} eligible={Boolean(hasFundedAccount)&&!isGuest&&!needsEmail} blocked={Boolean(modal)||busy||profileBusy||!online||Boolean(pendingRef.current)||['sign-in','guest-connect'].includes(flow.step)} Dialog={Modal}/>
     {modal==='profile'&&<Modal title="Make it yours" onClose={()=>{if(!profileBusy)setModal(null);}}><form className="profile-form" onSubmit={saveName}><p>What should we call you? This name is just for your Cashflow greeting.</p><label htmlFor="display-name">Your name</label><input id="display-name" autoComplete="given-name" maxLength={40} value={nameDraft} onChange={event=>setNameDraft(event.target.value)} disabled={profileBusy} required/>{profileError&&<p role="alert">{profileError}</p>}<button className="primary" disabled={profileBusy||!online||!nameDraft.trim()}>{profileBusy?'Saving…':'Save name'}</button><button type="button" className="secondary" disabled={profileBusy} onClick={()=>setModal(null)}>Maybe later</button></form></Modal>}
     {modal==='token'&&<Modal title="$CFK token details" onClose={()=>setModal(null)}><div className="token-details"><p>Official Cashflowkey token on Solana.</p><span>Token address</span><code>{config?.mint||MINT}</code><button className="primary" onClick={copyMint}>Copy address</button></div></Modal>}
     {walletActive&&config?.privyAppId&&<Suspense fallback={null}><Wallet appId={config.privyAppId} activation={activation} loginMethod={loginMethod} guestCheckoutEnabled={config.guestCheckoutEnabled} onReady={onReady} onError={onError} onCancel={onCancelSignIn}/></Suspense>}
@@ -265,7 +267,6 @@ export default function App(){
       {flow.step==='paid'&&<div className="flow-state"><Icon name="check"/><h3>Withdrawal confirmed</h3><p>Your payment provider has confirmed the payout. Arrival time depends on your payment method.</p><button className="secondary" onClick={close}>Done</button></div>}
     </Modal>}
     {['disclosures','terms','privacy'].includes(modal)&&<Modal title={{disclosures:'Risk & fee disclosures',terms:'Terms of use',privacy:'Privacy policy'}[modal]} onClose={()=>setModal(null)}><Legal kind={modal}/></Modal>}
-    {modal==='measurement'&&<Modal title="Privacy choices" onClose={()=>setModal(null)}><p className="dialog-copy">Allow optional advertising measurement? Buying and selling work with either choice.</p><button className="primary" onClick={()=>chooseConsent('granted')}>Allow measurement</button><button className="secondary" onClick={()=>chooseConsent('denied')}>Essential only</button></Modal>}
-    {consent==='unknown'&&<div className="consent" role="region" aria-label="Privacy choices"><span>Allow ad measurement?</span><button onClick={()=>chooseConsent('denied')}>No thanks</button><button className="consent-accept" onClick={()=>chooseConsent('granted')}>Allow</button></div>}
+    {modal==='measurement'&&<Modal title="Privacy choices" onClose={()=>setModal(null)}><p className="dialog-copy">Advertising measurement is {consent==='granted'?'on':'off'}. Buying and selling work with either choice.</p><button className="primary" disabled={Boolean(navigator.globalPrivacyControl||config?.measurement?.privacySignal)} onClick={()=>chooseConsent('granted')}>Turn on measurement</button><button className="secondary" onClick={()=>chooseConsent('denied')}>Turn off measurement</button>{(navigator.globalPrivacyControl||config?.measurement?.privacySignal)&&<p className="dialog-copy">Your browser’s privacy signal keeps advertising measurement off.</p>}</Modal>}
   </div>;
 }

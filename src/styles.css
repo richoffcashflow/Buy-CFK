@@ -121,8 +121,6 @@ footer { text-align: center; padding: 25px 10px 18px; font-size: 11px; line-heig
 .review h3 { font-size: 39px; margin: 0 0 20px; letter-spacing: -1.5px; }.review dl > div { display: flex; justify-content: space-between; padding: 13px 0; border-bottom: 1px solid var(--line); gap: 12px; font-size: 13px; }.review dt { color: #758596; }.review dd { margin: 0; text-align: right; font-weight: 700; }.review p { font-size: 13px; color: #788797; line-height: 1.7; margin: 20px 0; }.checkout-frame { width: 100%; height: min(60dvh, 520px); border: 1px solid var(--line); border-radius: 12px; }
 .legal { font-size: 14px; color: #6b7b8b; line-height: 1.7; }.legal h3 { color: #243247; font-size: 16px; margin: 24px 0 7px; }.legal p { margin: 0 0 12px; }.legal a { color: var(--blue); }
 .toast { position: fixed; left: 50%; bottom: calc(var(--dock-height) + 12px); transform: translateX(-50%); padding: 13px 18px; background: #172b43; color: #fff; border-radius: 14px; font-size: 13px; width: max-content; max-width: 92%; z-index: 20; box-shadow: 0 10px 35px #0002; overflow-wrap: anywhere; }
-.consent { width: min(calc(100% - 32px), 588px); margin: 0 auto 15px; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 13px; background: #f1f4f8; border-radius: 14px; }
-.consent span { font-size: 11px; color: #7f8d9d; }.consent button { white-space: nowrap; border: 0; background: none; padding: 9px 3px; font-size: 11px; font-weight: 650; color: #687b90; }.consent .consent-accept { border-radius: 8px; background: var(--blue-light); color: var(--blue-dark); padding: 9px 10px; }
 @media (max-width: 400px) { .coin-identity { padding: 15px; gap: 10px; }.coin-identity h1 { font-size: 20px; }.coin-identity-main > img { width: 42px; height: 42px; }.coin-card { padding: 18px 17px 16px; }h2 { font-size: 20px; }.price-row > strong { font-size: 32px; }.trade-buttons .primary { font-size: 15px; }.trade-buttons .buy { padding-left: 10px; padding-right: 10px; } }
 @media (max-height: 740px) { .app { --page-top-gap: 10px; }.coin-identity { margin-bottom: 10px; padding-top: 12px; padding-bottom: 12px; }.coin-card { padding-top: 16px; }.price-row { margin-top: 9px; }.chart { margin-top: 9px; }.chart-plot { height: 180px; }.chart-empty { min-height: 220px; }.dock-inner { padding-top: 10px; padding-bottom: 10px; }.amount-heading { margin-bottom: 7px; }.amount-choices { margin-bottom: 8px; }.ranges { margin-top: 9px; margin-bottom: 12px; } }
 @media (max-width: 345px) { .app { padding-left: 10px; padding-right: 10px; }.coin-identity h1 { font-size: 18px; }.coin-identity-main > img { width: 36px; height: 36px; }.coin-identity { gap: 8px; padding: 12px; }.price-row > strong { font-size: 28px; }.trade-buttons .primary { font-size: 13px; }.dock-inner { padding-left: 12px; padding-right: 12px; }.amount-choices { gap: 6px; }.market-stats dt { font-size: 10px; } }
@@ -148,11 +146,11 @@ footer { text-align: center; padding: 25px 10px 18px; font-size: 11px; line-heig
 .history-review { border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: var(--blue-light); color: var(--blue-dark); }
 .account-history .history-note { margin-top: 12px; }
 
-.install-app { margin: 0 auto 18px; max-width: 400px; }
-footer .install-button { min-height: 44px; padding: 10px 18px; border: 1px solid var(--line); border-radius: 12px; color: var(--blue-dark); background: var(--blue-light); font-size: 13px; font-weight: 700; }
-.install-help { padding: 12px; margin-top: 8px; border: 1px solid var(--line); border-radius: 12px; text-align: left; color: #627184; }
-.install-help p { font-size: 12px; }
-footer .install-help button { min-height: 36px; font-weight: 700; color: var(--blue-dark); }
+.install-prompt { text-align: center; }
+.install-brand { display: grid; place-items: center; width: 88px; height: 88px; margin: 8px auto 20px; border: 1px solid var(--line); border-radius: 24px; background: #fff; box-shadow: 0 8px 24px #102a4208; }
+.install-brand img { object-fit: contain; }
+.install-prompt p { color: #627184; font-size: 15px; line-height: 1.6; margin: 0 0 22px; }
+.install-prompt .install-help { padding: 16px; border-radius: 14px; background: var(--blue-light); text-align: left; }
 .connection-notice { padding: 12px; background: #fff8e8; color: #76500f; border-radius: 12px; font-size: 13px; line-height: 1.5; }
 
 /* Put the coin and the action in the first viewport. */
@@ -247,7 +245,7 @@ h2 { font-size: 17px; letter-spacing: -.3px; font-weight: 650; }
 .nav-card-icon { position: relative; height: 21px; }.nav-lock { position: absolute; right: -8px; bottom: -3px; display: grid; place-items: center; padding: 2px; border-radius: 50%; background: #fff; }.nav-lock svg { width: 9px; height: 9px; stroke-width: 2; }
 .dialog { width: min(100%, 440px); padding: 25px; border-radius: 21px; color: #102a42; }.dialog-head h2 { font-weight: 600; font-size: 19px; }.dialog-backdrop { background: #102a4240; }.flow-state h3 { font-weight: 550; }.review h3 { font-size: 28px; font-weight: 550; }.review dd { font-weight: 550; }.dialog-copy, .review p, .flow-state p { color: #63788e; }
 .toast { bottom: calc(var(--dock-height) + var(--nav-height) + 10px); }.card-view .toast { bottom: calc(var(--nav-height) + 10px); }
-footer { color: #718396; padding-left: 0; padding-right: 0; }footer nav { gap: 12px; }footer p, footer a, footer button { font-size: 10px; }.consent { max-width: 432px; background: #f2f5f8; padding: 10px; margin-top: 8px; }
+footer { color: #718396; padding-left: 0; padding-right: 0; }footer nav { gap: 12px; }footer p, footer a, footer button { font-size: 10px; }
 .profile-form p { font-size: 13px; line-height: 1.6; color: #63788e; }.profile-form label { font-size: 12px; display: block; margin: 20px 0 9px; }.profile-form input { width: 100%; padding: 14px; border: 1px solid #dce5ed; border-radius: 11px; background: #fff; color: #102a42; margin-bottom: 20px; font-size: 16px; }.profile-form [role=alert] { color: #a35057; }
 .account-eyebrow { font-size: 9px; font-weight: 600; color: #718396; letter-spacing: 1.5px; }.cash-card-heading { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-top: 35px; }.cash-card-heading h2 { margin: 12px 0 0; font-size: 31px; letter-spacing: -1.1px; font-weight: 550; }.card-state { display: inline-flex; gap: 5px; align-items: center; font-size: 10px; color: #647e93; border-radius: 6px; background: #f0f4f7; padding: 6px 8px; white-space: nowrap; }.card-state svg { width: 12px; height: 12px; }
 .cash-card-intro { color: #718396; font-size: 13px; line-height: 1.6; margin: 12px 0 27px; }.cash-card-art { aspect-ratio: 1.586; width: 100%; background: linear-gradient(145deg, #fff 48%, #f5faff); color: #102a42; padding: 24px; border: 1px solid #e2eaf1; border-radius: 18px; box-shadow: 0 14px 28px -15px #102a4230, 0 2px 5px #102a4204; }

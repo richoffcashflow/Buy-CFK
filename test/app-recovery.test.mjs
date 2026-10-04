@@ -12,10 +12,10 @@ const output=await build({entryPoints:[new URL('../src/App.jsx',import.meta.url)
   b.onResolve({filter:/\/(Wallet|PriceChart|StripeCheckout)\.jsx$/},args=>({path:args.path,namespace:'ui-fixture'}));
   b.onLoad({filter:/.*/,namespace:'ui-fixture'},args=>({loader:'jsx',contents:args.path.endsWith('Wallet.jsx')?`import React from 'react'; export default function Wallet(props){globalThis.cfkWalletProps=props;return props.loginMethod==='guest'||props.activation===0?null:<div role="dialog" aria-label="Mock secure sign-in">Mock secure sign-in</div>;}`:`export default function Fixture(){return null;}`}));
   b.onResolve({filter:/\/tracking\.js$/},()=>({path:'tracking',namespace:'tracking-fixture'}));
-  b.onLoad({filter:/.*/,namespace:'tracking-fixture'},()=>({contents:`export const captureAttribution=()=>{},getSession=async()=>({id:'test-session'}),track=async()=>{},setConsent=()=>{},getConsent=()=>'denied';`}));
+  b.onLoad({filter:/.*/,namespace:'tracking-fixture'},()=>({contents:`export const configureMeasurement=()=>'denied',getSession=async()=>({id:'test-session'}),track=async()=>{},setConsent=()=>{},getConsent=()=>'denied';`}));
 }}]});
 const {default:App}=await import('data:text/javascript;base64,'+Buffer.from(output.outputFiles[0].text).toString('base64'));
-async function fixture({pending,accountSeen=false,buyEnabled=false,withdrawEnabled=false,guestCheckoutEnabled=false,purchaseIntent,position={tokens:0,valueUsd:0,availableUsd:0},responses={}}={}){
+async function fixture({pending,accountSeen=false,installSeen=true,standalone=false,buyEnabled=false,withdrawEnabled=false,guestCheckoutEnabled=false,purchaseIntent,position={tokens:0,valueUsd:0,availableUsd:0},responses={}}={}){
   const dom=new JSDOM('<div id="root"></div>',{url:'https://test.invalid/'});
   const originals=new Map();
   for(const [key,value] of Object.entries({window:dom.window,navigator:dom.window.navigator,document:dom.window.document,sessionStorage:dom.window.sessionStorage,localStorage:dom.window.localStorage,location:dom.window.location,ResizeObserver:class{observe(){}disconnect(){}},IS_REACT_ACT_ENVIRONMENT:true})){
@@ -24,6 +24,8 @@ async function fixture({pending,accountSeen=false,buyEnabled=false,withdrawEnabl
   if(purchaseIntent)dom.window.sessionStorage.setItem('cfk_purchase_intent',JSON.stringify(purchaseIntent));
   if(pending)dom.window.localStorage.setItem('cfk_pending',JSON.stringify(pending));
   if(accountSeen)dom.window.localStorage.setItem('cfk_account_seen','1');
+  if(installSeen)dom.window.localStorage.setItem('cfk_install_seen:test-user','1');
+  if(standalone)dom.window.matchMedia=()=>({matches:true});
   const requests=[];const originalFetch=globalThis.fetch;
   globalThis.fetch=async(url,options)=>{
     requests.push({url,...options});
@@ -163,22 +165,19 @@ test('server history restores a payment after browser storage was cleared withou
 });
 
 
-test('home-screen help is optional and an install prompt only runs after a tap',async()=>{
-  const f=await fixture();
+test('dismissing native installation closes the invite and does not ask again',async()=>{
+  const f=await fixture({installSeen:false,position:{tokens:25,valueUsd:25,availableUsd:0}});
   try{
-    assert.equal(document.querySelector('.install-help'),null);
-    await f.click('Add to Home Screen');
-    assert.match(document.querySelector('.install-help').textContent,/internet connection is required/);
-    await f.click('Got it');
     let prompts=0;
     const event=new window.Event('beforeinstallprompt',{cancelable:true});
     event.prompt=async()=>{prompts++;};event.userChoice=Promise.resolve({outcome:'dismissed'});
     await act(async()=>window.dispatchEvent(event));
     assert.equal(event.defaultPrevented,true);
-    assert.equal(prompts,0);
-    await f.click('Add to Home Screen');
-    assert.equal(prompts,1);
-    assert.ok([...document.querySelectorAll('button')].some(b=>b.textContent==='Add to Home Screen'));
+    await f.signIn();assert.equal(prompts,0);
+    await f.click('Add to Home Screen');assert.equal(prompts,1);
+    assert.equal(document.querySelector('[aria-modal="true"]'),null);
+    await act(async()=>globalThis.cfkWalletProps.onReady({...f.bridge,displayName:'Taylor'}));
+    assert.doesNotMatch(f.text(),/Keep CFK close|Add to Home Screen/);
   }finally{await f.close();}
 });
 
@@ -375,5 +374,77 @@ test('the saved profile name is greeted without adding a step to checkout',async
     assert.equal(document.querySelector('#display-name').value,'Jordan');
     await f.click('Maybe later');
     assert.equal(document.querySelector('#display-name'),null);
+  }finally{await f.close();}
+});
+
+test('install invite waits for a funded saved account, then stays dismissed',async()=>{
+  const f=await fixture({installSeen:false,position:{tokens:25,valueUsd:25,availableUsd:0}});
+  try{
+    assert.doesNotMatch(f.text(),/Allow ad measurement|Add to Home Screen/);
+    assert.equal(document.querySelector('footer .install-button'),null);
+    f.bridge.isGuest=true;f.bridge.needsEmail=true;
+    await f.signIn();
+    assert.doesNotMatch(f.text(),/Keep CFK close/);
+    await act(async()=>globalThis.cfkWalletProps.onReady({...f.bridge,isGuest:false,needsEmail:false}));
+    assert.match(document.querySelector('[aria-modal="true"]').textContent,/Keep CFK close/);
+    await f.click('Add to Home Screen');
+    assert.match(document.querySelector('.install-help').textContent,/Install app.*bookmark/);
+    await f.click('Got it');
+    assert.equal(document.querySelector('[aria-modal="true"]'),null);
+    assert.equal(localStorage.getItem('cfk_install_seen:test-user'),'1');
+    await act(async()=>globalThis.cfkWalletProps.onReady({...f.bridge,isGuest:false,needsEmail:false,displayName:'Taylor'}));
+    assert.doesNotMatch(f.text(),/Keep CFK close/);
+    assert.equal(f.signs(),0);
+    assert.ok(!f.requests.some(r=>/ramp|trade/.test(r.url)));
+  }finally{await f.close();}
+});
+
+test('unfunded and already installed accounts never receive an install invite',async()=>{
+  for(const options of [{installSeen:false},{installSeen:false,standalone:true,position:{tokens:25,valueUsd:25,availableUsd:0}}]){
+    const f=await fixture(options);
+    try{await f.signIn();assert.doesNotMatch(f.text(),/Keep CFK close|Add to Home Screen/);assert.equal(localStorage.getItem('cfk_install_seen:test-user'),null);}
+    finally{await f.close();}
+  }
+});
+
+test('saved install dismissal survives a new app mount',async()=>{
+  const f=await fixture({installSeen:true,position:{tokens:25,valueUsd:25,availableUsd:0}});
+  try{await f.signIn();assert.doesNotMatch(f.text(),/Keep CFK close|Add to Home Screen/);}finally{await f.close();}
+});
+
+test('install invite waits for payment recovery and native installation needs a click',async()=>{
+  const f=await fixture({installSeen:false,pending:{type:'payment',rampId:'pending-install',userId:'test-user',savedAt:Date.now()},position:{tokens:25,valueUsd:25,availableUsd:0},responses:{'/api/ramp/status?id=pending-install':()=>({status:'pending',direction:'onramp'})}});
+  try{
+    await f.signIn();
+    assert.doesNotMatch(f.text(),/Keep CFK close/);
+    assert.equal(localStorage.getItem('cfk_install_seen:test-user'),null);
+  }finally{await f.close();}
+  const ready=await fixture({installSeen:false,position:{tokens:25,valueUsd:25,availableUsd:0}});
+  try{
+    let prompts=0;
+    const event=new ready.dom.window.Event('beforeinstallprompt',{cancelable:true});
+    event.prompt=async()=>{prompts++;};event.userChoice=Promise.resolve({outcome:'accepted'});
+    await act(async()=>ready.dom.window.dispatchEvent(event));
+    assert.equal(event.defaultPrevented,true);
+    await ready.signIn();assert.equal(prompts,0);
+    await ready.click('Add to Home Screen');assert.equal(prompts,1);
+    assert.equal(document.querySelector('[aria-modal="true"]'),null);
+  }finally{await ready.close();}
+});
+
+test('a newly funded account waits for the current dialog to close before the invite',async()=>{
+  let funded=false;
+  const f=await fixture({installSeen:false,position:()=>({tokens:funded?25:0,valueUsd:funded?25:0,availableUsd:0})});
+  try{
+    await f.signIn();await f.click('Add your name');
+    funded=true;
+    await act(async()=>globalThis.cfkWalletProps.onReady({...f.bridge,address:'funded-wallet'}));
+    assert.match(document.querySelector('[aria-modal="true"]').textContent,/Make it yours/);
+    assert.doesNotMatch(f.text(),/Keep CFK close/);
+    assert.equal(localStorage.getItem('cfk_install_seen:test-user'),null);
+    await f.click('Maybe later');
+    assert.match(document.querySelector('[aria-modal="true"]').textContent,/Keep CFK close/);
+    await f.click('Not now');
+    assert.equal(document.querySelector('[aria-modal="true"]'),null);
   }finally{await f.close();}
 });

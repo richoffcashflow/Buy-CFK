@@ -1,13 +1,27 @@
 import {api} from './utils.js';
 const keys=['utm_source','utm_medium','utm_campaign','utm_content','utm_term','gclid','gbraid','wbraid','fbclid','ttclid','twclid','oppref','ref'];
 let sessionPromise=null,cachedConfig=null,installed=false;
+let sessionQueue=Promise.resolve(),measurementRevision=0;
+let measurementPolicy={defaultEnabled:false,privacySignal:false};
 const emitted=new Set(),inFlight=new Set();
 const pageViewId=crypto.randomUUID();
 let checkoutId=null;
 export function getCheckoutId(){return checkoutId??=crypto.randomUUID();}
 const storage={get:k=>{try{return localStorage.getItem(k);}catch{return null;}},set:(k,v)=>{try{localStorage.setItem(k,v);}catch{}},remove:k=>{try{localStorage.removeItem(k);}catch{}}};
 const cookie=name=>document.cookie.split('; ').find(x=>x.startsWith(name+'='))?.slice(name.length+1);
-export function getConsent(){return navigator.globalPrivacyControl?'denied':storage.get('cfk_consent')||'unknown';}
+function consentChoice(){
+  if(navigator.globalPrivacyControl||measurementPolicy.privacySignal)return 'denied';
+  const saved=storage.get('cfk_consent');
+  return ['granted','denied'].includes(saved)?saved:'default';
+}
+export function getConsent(){const choice=consentChoice();return choice==='default'?(measurementPolicy.defaultEnabled?'granted':'unknown'):choice;}
+export function configureMeasurement(config){
+  const next={defaultEnabled:config?.measurement?.defaultEnabled===true,privacySignal:config?.measurement?.privacySignal===true};
+  if(next.defaultEnabled!==measurementPolicy.defaultEnabled||next.privacySignal!==measurementPolicy.privacySignal){measurementRevision++;sessionPromise=null;}
+  measurementPolicy=next;cachedConfig=config;
+  if(getConsent()!=='granted')storage.remove('cfk_attribution');
+  return getConsent();
+}
 export function captureAttribution(){
   if(getConsent()!=='granted')return {};
   const q=new URLSearchParams(location.search);let saved={};try{saved=JSON.parse(storage.get('cfk_attribution')||'{}');}catch{}
@@ -18,11 +32,16 @@ export function captureAttribution(){
   storage.set('cfk_attribution',JSON.stringify(data));return data;
 }
 export async function getSession(){
-  if(!sessionPromise)sessionPromise=api('/session',{method:'POST',body:{sessionId:storage.get('cfk_session'),consent:getConsent(),attribution:captureAttribution()}}).then(d=>{storage.set('cfk_session',d.id);return d;}).catch(e=>{sessionPromise=null;throw e;});
+  if(!sessionPromise){
+    // Serialize updates so a late earlier request cannot undo an opt-out.
+    const request=sessionQueue.catch(()=>{}).then(()=>api('/session',{method:'POST',body:{sessionId:storage.get('cfk_session'),consent:consentChoice(),attribution:captureAttribution()}})).then(d=>{storage.set('cfk_session',d.id);if(!d.consent)storage.remove('cfk_attribution');return d;});
+    sessionQueue=request;
+    sessionPromise=request.catch(e=>{if(sessionQueue===request)sessionPromise=null;throw e;});
+  }
   return sessionPromise;
 }
 export function setConsent(value){
-  const effective=navigator.globalPrivacyControl?'denied':value;storage.set('cfk_consent',effective);
+  const effective=navigator.globalPrivacyControl||measurementPolicy.privacySignal||value!=='granted'?'denied':'granted';storage.set('cfk_consent',effective);measurementRevision++;
   if(effective!=='granted')storage.remove('cfk_attribution');
   window.fbq?.('consent',effective==='granted'?'grant':'revoke');window.oaiq?.('consent',effective==='granted');window.gtag?.('consent','update',{ad_storage:effective==='granted'?'granted':'denied',analytics_storage:effective==='granted'?'granted':'denied',ad_user_data:effective==='granted'?'granted':'denied',ad_personalization:'denied'});
   sessionPromise=null;getSession().catch(()=>{});
@@ -41,11 +60,14 @@ export async function track(name,details={},config,options={}){
   if(!config||getConsent()!=='granted')return;
   if(name==='Purchase'&&(!options.verified||!details.eventId||!Number.isSafeInteger(details.valueCents)))throw new Error('A confirmed purchase receipt is required.');
   const session=await getSession();
+  if(getConsent()!=='granted'||session.consent!==true)return;
+  const revision=measurementRevision;
   const eventId=details.eventId||(name==='ViewContent'?`view_${session.id}_${pageViewId}`:name==='AddToCart'?`cart_${session.id}_${crypto.randomUUID()}`:name==='InitiateCheckout'?`checkout_${session.id}_${details.checkoutId||getCheckoutId()}`:crypto.randomUUID());
   if(emitted.has(eventId)||inFlight.has(eventId))return;
   inFlight.add(eventId);
   try{
     if(name!=='Purchase')await api('/events',{method:'POST',body:{name,eventId,sessionId:session.id,trigger:details.trigger,attribution:captureAttribution()}});
+    if(getConsent()!=='granted'||revision!==measurementRevision)return;
     emitted.add(eventId);install(config);
     const c=config.tracking||{},value=name==='Purchase'?details.valueCents/100:0;
     const common={currency:'USD',value,content_ids:[config.mint],content_type:'product',content_name:'CFK platform fee'};
