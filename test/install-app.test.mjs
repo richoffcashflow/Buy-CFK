@@ -13,13 +13,17 @@ test('install help matches iPhone, iPad desktop-mode, Android and desktop',()=>{
   assert.match(installationHelp({userAgent:'Android Chrome'}),/Chrome.*browser menu/);
   assert.match(installationHelp({userAgent:'Desktop browser'}),/bookmark/);
 });
-test('home-screen manifest uses the existing coin artwork without financial or session URLs',async()=>{
+test('home-screen manifest uses correctly sized Cashflow icons without financial or session URLs',async()=>{
   const manifest=JSON.parse(await readFile(new URL('../public/manifest.webmanifest',import.meta.url),'utf8'));
   assert.equal(manifest.start_url,'/');assert.equal(manifest.id,'/');assert.equal(manifest.scope,'/');assert.equal(manifest.display,'standalone');
-  for(const icon of manifest.icons)assert.ok((await readFile(new URL('../public'+icon.src,import.meta.url))).length);
-  const svg=await readFile(new URL('../public/assets/app-icon.svg',import.meta.url),'utf8');
-  assert.ok(svg.includes((await readFile(new URL('../public/assets/cfk-coin.png',import.meta.url))).toString('base64')));
-  assert.ok(manifest.icons.some(icon=>icon.sizes==='any'&&icon.type==='image/svg+xml'));
+  for(const icon of manifest.icons){
+    const png=await readFile(new URL('../public'+icon.src,import.meta.url));
+    assert.equal(icon.type,'image/png');
+    assert.equal(png.subarray(0,8).toString('hex'),'89504e470d0a1a0a');
+    assert.equal(icon.sizes,`${png.readUInt32BE(16)}x${png.readUInt32BE(20)}`);
+  }
+  assert.ok(manifest.icons.some(icon=>icon.sizes==='192x192'));
+  assert.ok(manifest.icons.some(icon=>icon.sizes==='512x512'));
   const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
   assert.match(html,/rel="manifest"/);assert.match(html,/rel="apple-touch-icon"/);
 });
