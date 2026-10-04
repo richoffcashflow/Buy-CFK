@@ -31,7 +31,6 @@ export default function TradeDock({amount, setAmount, onBuy, onSell, busy, canSe
           {openingSignIn?'Connecting your account…':busy?'Please wait…':pending?'Continue payment or trade':loading?'Connecting…':unavailable?'Buying unavailable':'Buy '+formatMoney(Number(amount)).replace('.00','')+' of CFK'}
         </button>
       </div>
-      <p className="dock-fee-note">15% platform fee plus payment and network costs apply.</p>
     </div>
   </section>;
 }
