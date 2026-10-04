@@ -36,6 +36,7 @@ async function fixture({pending,accountSeen=false,installSeen=true,standalone=fa
     else if(url.startsWith('/api/chart'))result={points:[]};
     else if(url.startsWith('/api/position'))result=typeof position==='function'?position():position;
     else if(url==='/api/account/history'&&!responses[url])result={items:[]};
+    else if(url==='/api/account/access'&&!responses[url])result={isAdmin:false};
     else if(responses[url])result=await responses[url](options);
     else throw new Error('Unexpected isolated request: '+url);
     return new Response(JSON.stringify(result.body??result),{status:typeof result.status==='number'?result.status:200,headers:{'Content-Type':'application/json'}});
@@ -46,7 +47,7 @@ async function fixture({pending,accountSeen=false,installSeen=true,standalone=fa
   const click=async text=>{const button=buttons().find(b=>b.textContent===text);assert.ok(button,`Missing button: ${text}`);assert.equal(button.disabled,false);await act(async()=>button.click());};
   let signs=0,upgrades=0;
   const bridge={upgrade:()=>{upgrades++;},userId:'test-user',address:'test-wallet',getAccessToken:async()=>'test-token',sign:async()=>{signs++;return 'signed-fixture';}};
-  return {dom,requests,click,bridge,signs:()=>signs,upgrades:()=>upgrades,text:()=>document.body.textContent,signIn:async()=>{await click('Sign in to your account');await act(async()=>globalThis.cfkWalletProps.onReady(bridge));},close:async()=>{await act(async()=>root.unmount());globalThis.fetch=originalFetch;delete globalThis.cfkWalletProps;for(const [key,descriptor] of originals){if(descriptor)Object.defineProperty(globalThis,key,descriptor);else delete globalThis[key];}dom.window.close();}};
+  return {dom,requests,click,bridge,signs:()=>signs,upgrades:()=>upgrades,text:()=>document.body.textContent,signIn:async()=>{await click('Sign in');await act(async()=>globalThis.cfkWalletProps.onReady(bridge));},close:async()=>{await act(async()=>root.unmount());globalThis.fetch=originalFetch;delete globalThis.cfkWalletProps;for(const [key,descriptor] of originals){if(descriptor)Object.defineProperty(globalThis,key,descriptor);else delete globalThis[key];}dom.window.close();}};
 }
 
 test('returning users can sign in without starting a buy; provider gets an unobstructed dialog',async()=>{
@@ -57,7 +58,8 @@ test('returning users can sign in without starting a buy; provider gets an unobs
     assert.doesNotMatch(f.text(),/Telegram|TikTok|YouTube/);
     assert.equal(document.querySelector('.coin-identity h1').textContent,'Cashflowkey');
     assert.equal(document.querySelector('.coin-identity .brand-account-label').textContent,'CFK');
-    assert.equal(document.querySelector('.header-sign-in').textContent,'Sign in');
+    assert.equal(document.querySelector('header button'),null);
+    assert.equal(document.querySelector('.footer-sign-in').textContent,'Sign in');
     await f.click('Sign in');
     assert.equal(document.querySelectorAll('[role="dialog"]').length,1);
     assert.equal(document.querySelector('[role="dialog"]').getAttribute('aria-label'),'Mock secure sign-in');
@@ -333,19 +335,22 @@ test('a smaller position can be sold without being rejected by the default $20 b
 });
 
 
-test('CFK Card stays a locked preview before selling and never starts payment or authentication',async()=>{
-  const f=await fixture({buyEnabled:true});
+test('new visitors and funded buyers see only CFK before their first confirmed sale',async()=>{
+  const f=await fixture({buyEnabled:true,position:{tokens:14,valueUsd:14,availableUsd:0}});
   try{
-    const card=[...document.querySelectorAll('button')].find(b=>b.getAttribute('aria-label')==='CFK Card, locked preview');
-    await act(async()=>card.click());
-    assert.match(f.text(),/Meet CFK Card/);
-    assert.match(document.querySelector('.cash-card-page').textContent,/Unlock after your first sale/);
-    assert.equal(document.querySelector('.trade-dock'),null);
+    assert.equal(document.querySelector('header button'),null);
+    assert.equal(document.querySelector('.position-card'),null);
+    assert.equal(document.querySelector('.account-navigation'),null);
+    assert.equal(document.querySelector('.cash-card-page'),null);
+    assert.ok(document.querySelector('.app-frame.single-view'));
+    assert.doesNotMatch(f.text(),/CFK Card|older account|Sign up/);
     assert.equal(globalThis.cfkWalletProps,undefined);
-    assert.ok(!f.requests.some(r=>/ramp|trade/.test(r.url)));
-    await f.click('Back to CFK');
+    await f.signIn();
+    assert.match(f.text(),/CFK value\$14\.00/);
+    assert.equal(document.querySelector('.account-navigation'),null);
+    assert.equal(document.querySelector('.cash-card-page'),null);
     assert.ok(document.querySelector('.trade-dock'));
-    assert.equal(document.querySelector('.dock-fee-note'),null);
+    assert.ok(!f.requests.some(r=>/ramp|trade/.test(r.url)));
   }finally{await f.close();}
 });
 
@@ -354,7 +359,7 @@ test('a confirmed sale unlocks only the setup stage, never a fake active card ba
   try{
     await f.signIn();
     await act(async()=>document.querySelector('.account-navigation button[aria-label="CFK Card"]').click());
-    assert.match(document.querySelector('.cash-card-page').textContent,/Your first sale is complete/);
+    assert.match(document.querySelector('.cash-card-page').textContent,/CFK Card unlocked/);
     assert.match(document.querySelector('.cash-card-page').textContent,/Not activated/);
     assert.equal([...document.querySelectorAll('button')].find(b=>b.textContent==='Activation coming soon').disabled,true);
     assert.ok(!f.requests.some(r=>/ramp|trade/.test(r.url)));
@@ -446,5 +451,62 @@ test('a newly funded account waits for the current dialog to close before the in
     assert.match(document.querySelector('[aria-modal="true"]').textContent,/Keep CFK close/);
     await f.click('Not now');
     assert.equal(document.querySelector('[aria-modal="true"]'),null);
+  }finally{await f.close();}
+});
+
+test('verified owner can preview the card before selling; another account cannot inherit it',async()=>{
+  let owner=true;
+  const f=await fixture({position:{tokens:14,valueUsd:14,availableUsd:0},responses:{'/api/account/access':()=>({isAdmin:owner})}});
+  try{
+    await f.signIn();
+    await f.click('CFK Card');
+    assert.match(document.querySelector('.cash-card-page').textContent,/OWNER PREVIEW/);
+    assert.match(document.querySelector('.cash-card-page').textContent,/Not activated/);
+    assert.ok(!f.requests.some(r=>/ramp|trade/.test(r.url)));
+    assert.equal(f.signs(),0);
+    owner=false;
+    await act(async()=>globalThis.cfkWalletProps.onReady({...f.bridge,userId:'different-user'}));
+    assert.equal(document.querySelector('.account-navigation'),null);
+    assert.equal(document.querySelector('.cash-card-page'),null);
+    assert.ok(document.querySelector('.app-frame.single-view'));
+  }finally{await f.close();}
+});
+
+test('a failed sale does not reveal the card; a confirmed first sale celebrates and opens it',async()=>{
+  let fail=true,sold=false;
+  const f=await fixture({position:{tokens:14,valueUsd:14,availableUsd:0},responses:{
+    '/api/trade/prepare':()=>({orderId:'sell-fixture',transaction:'unsigned',amountUsd:13.7,tokens:14,slippageBps:100}),
+    '/api/trade/submit':()=>({signature:'test-signature'}),
+    '/api/trade/confirm':()=>{if(fail)return {status:409,body:{message:'Sale has not confirmed.'}};sold=true;return {confirmed:true,side:'sell',signature:'test-signature'};},
+    '/api/account/history':()=>({hasCompletedSale:sold,items:[]})
+  }});
+  try{
+    await f.signIn();await f.click('Sell');
+    assert.equal(document.querySelector('.account-navigation'),null);
+    await f.click('Confirm sale');
+    assert.match(f.text(),/Sale has not confirmed/);
+    assert.equal(document.querySelector('.account-navigation'),null);
+    assert.doesNotMatch(f.text(),/Congratulations/);
+    fail=false;await f.click('Check again');
+    assert.match(document.querySelector('[aria-modal="true"]').textContent,/Congratulations, you unlocked CFK Card/);
+    assert.equal(document.querySelectorAll('.account-navigation button').length,2);
+    assert.doesNotMatch(document.querySelector('[aria-modal="true"]').textContent,/ready to spend/i);
+    await f.click('View CFK Card');
+    assert.equal(document.querySelector('[aria-modal="true"]'),null);
+    assert.match(document.querySelector('.cash-card-page').textContent,/CFK Card unlocked/);
+    assert.equal(document.querySelector('.trade-dock'),null);
+  }finally{await f.close();}
+});
+
+test('stale owner access cannot reveal cards for a newly selected account',async()=>{
+  let resolveOwner;
+  const oldAccess=new Promise(resolve=>{resolveOwner=resolve;});let calls=0;
+  const f=await fixture({responses:{'/api/account/access':()=>++calls===1?oldAccess:{isAdmin:false}}});
+  try{
+    await f.signIn();
+    await act(async()=>globalThis.cfkWalletProps.onReady({...f.bridge,userId:'next-user'}));
+    await act(async()=>resolveOwner({isAdmin:true}));
+    assert.equal(document.querySelector('.account-navigation'),null);
+    assert.equal(document.querySelector('.cash-card-page'),null);
   }finally{await f.close();}
 });
