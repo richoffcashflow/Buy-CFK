@@ -313,3 +313,48 @@ test('a smaller position can be sold without being rejected by the default $20 b
     assert.equal(f.signs(),0);
   }finally{await f.close();}
 });
+
+
+test('Cash Card stays a locked preview before selling and never starts payment or authentication',async()=>{
+  const f=await fixture({buyEnabled:true});
+  try{
+    const card=[...document.querySelectorAll('button')].find(b=>b.getAttribute('aria-label')==='Cash Card, locked preview');
+    await act(async()=>card.click());
+    assert.match(f.text(),/Meet Cash Card/);
+    assert.match(document.querySelector('.cash-card-page').textContent,/Unlock after your first sale/);
+    assert.equal(document.querySelector('.trade-dock'),null);
+    assert.equal(globalThis.cfkWalletProps,undefined);
+    assert.ok(!f.requests.some(r=>/ramp|trade/.test(r.url)));
+    await f.click('Back to CFK');
+    assert.ok(document.querySelector('.trade-dock'));
+    assert.equal(document.querySelector('.dock-fee-note'),null);
+  }finally{await f.close();}
+});
+
+test('a confirmed sale unlocks only the setup stage, never a fake active card balance',async()=>{
+  const f=await fixture({responses:{'/api/account/history':()=>({hasCompletedSale:true,items:[]})}});
+  try{
+    await f.signIn();
+    await act(async()=>document.querySelector('.account-navigation button[aria-label="Cash Card"]').click());
+    assert.match(document.querySelector('.cash-card-page').textContent,/Your first sale is complete/);
+    assert.match(document.querySelector('.cash-card-page').textContent,/Not activated/);
+    assert.equal([...document.querySelectorAll('button')].find(b=>b.textContent==='Activation coming soon').disabled,true);
+    assert.ok(!f.requests.some(r=>/ramp|trade/.test(r.url)));
+    await act(async()=>globalThis.cfkWalletProps.onReady({...f.bridge,userId:'second-user',displayName:'Sam'}));
+    assert.equal(document.querySelector('.cash-card-page'),null);
+    assert.match(document.querySelector('.account-welcome').textContent,/Hello, Sam/);
+  }finally{await f.close();}
+});
+
+test('the saved profile name is greeted without adding a step to checkout',async()=>{
+  const f=await fixture();
+  try{
+    f.bridge.displayName='Jordan';await f.signIn();
+    assert.match(document.querySelector('.account-welcome').textContent,/Hello, Jordan/);
+    assert.ok(!f.requests.some(r=>/ramp|trade|profile/.test(r.url)));
+    await act(async()=>document.querySelector('[aria-label="Edit your name"]').click());
+    assert.equal(document.querySelector('#display-name').value,'Jordan');
+    await f.click('Maybe later');
+    assert.equal(document.querySelector('#display-name'),null);
+  }finally{await f.close();}
+});

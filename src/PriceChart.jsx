@@ -60,9 +60,9 @@ export default function PriceChart({points, message, loading, historyStart, onIn
           onPointerLeave={event => { if (event.pointerType === 'mouse' && !event.buttons) setSelectedTime(null); }}
           onPointerCancel={() => setSelectedTime(null)}>
           <svg viewBox="0 0 560 210" preserveAspectRatio="none" aria-hidden="true">
-            <defs><linearGradient id={gradient} x1="0" y1="0" x2="0" y2="1"><stop stopColor="var(--blue)" stopOpacity=".24"/><stop offset="100%" stopColor="var(--blue)" stopOpacity=".015"/></linearGradient></defs>
+            <defs><linearGradient id={gradient} x1="0" y1="0" x2="0" y2="1"><stop stopColor="var(--blue)" stopOpacity=".10"/><stop offset="100%" stopColor="var(--blue)" stopOpacity=".015"/></linearGradient></defs>
             {[0, 70, 140, 210].map(tick => <line key={tick} x1="0" x2="560" y1={tick} y2={tick} stroke="var(--line)" vectorEffect="non-scaling-stroke"/>)}
-            {visible.length > 1 && <><path d={`${path} L${x(visible.at(-1)[0])},210 L${x(visible[0][0])},210 Z`} fill={`url(#${gradient})`}/><path d={path} fill="none" stroke="var(--blue)" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke"/></>}
+            {visible.length > 1 && <><path d={`${path} L${x(visible.at(-1)[0])},210 L${x(visible[0][0])},210 Z`} fill={`url(#${gradient})`}/><path d={path} fill="none" stroke="var(--blue)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke"/></>}
             {selected && <><line x1="0" x2="560" y1={y(selected[4])} y2={y(selected[4])} stroke="var(--blue)" opacity=".45" strokeDasharray="3 4" vectorEffect="non-scaling-stroke"/>{inspecting && <line x1={x(selected[0])} x2={x(selected[0])} y1="0" y2="210" stroke="#92a1b1" strokeDasharray="4 4" vectorEffect="non-scaling-stroke"/>}</>}
           </svg>
           {selected && <span className="chart-dot" style={{left: `${x(selected[0]) / 5.6}%`, top: `${y(selected[4]) / 2.1}%`}}/>}

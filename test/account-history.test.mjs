@@ -28,7 +28,10 @@ test('history returns only the authenticated owner and no provider or signing se
     await db.query("UPDATE cfk_orders SET status='confirmed' WHERE id=$1",[order]);
     result=await accountHistory({id:'owner'});
     assert.ok(result.items.every(x=>!x.recoverable));
-    assert.deepEqual(await accountHistory({id:'nobody'}),{items:[]});
+    assert.deepEqual(await accountHistory({id:'nobody'}),{hasCompletedSale:false,items:[]});
+    assert.equal((await accountHistory({id:'owner'})).hasCompletedSale,false);
+    await db.query("UPDATE cfk_orders SET side='sell' WHERE id=$1",[order]);
+    assert.equal((await accountHistory({id:'owner'})).hasCompletedSale,true);
     const recent=[];
     for(let i=0;i<25;i++){
       const id=randomUUID();recent.push(id);
@@ -36,6 +39,7 @@ test('history returns only the authenticated owner and no provider or signing se
     }
     const bounded=await accountHistory({id:'owner'});
     assert.equal(bounded.items.length,20);
+    assert.equal(bounded.hasCompletedSale,true);
     assert.deepEqual(bounded.items.map(item=>item.id),recent.slice(-20).reverse());
   }finally{pg.Pool.prototype.query=original;if(previous===undefined)delete process.env.DATABASE_URL;else process.env.DATABASE_URL=previous;await db.close();}
 });

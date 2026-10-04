@@ -11,6 +11,7 @@ function Bridge({onReady, onError, onCancel, activation, loginMethod, guestCheck
   const {signTransaction} = useSignTransaction();
   const {createGuestAccount} = useGuestAccounts();
   const wallet = wallets.find(w => w.standardWallet?.isPrivyWallet);
+  const displayName = typeof user?.customMetadata?.cfk_display_name === 'string' ? user.customMetadata.cfk_display_name.slice(0,80) : '';
   const loginStarted = useRef(-1), lastAccount = useRef(null);
   const sdk = useRef(null);
   sdk.current = {wallet, createWallet, getAccessToken, signTransaction, userId: authenticated ? user?.id : null};
@@ -44,18 +45,18 @@ function Bridge({onReady, onError, onCancel, activation, loginMethod, guestCheck
   }, [ready, authenticated, login, activation, loginMethod, createGuestAccount, onError, guestCheckoutEnabled]);
   useEffect(() => {
     if (!authenticated || !walletsReady || !user?.id) return;
-    const key = user.id + ':' + (wallet?.address || 'no-wallet') + ':' + Boolean(user.isGuest) + ':' + Boolean(user.email?.address);
+    const key = user.id + ':' + (wallet?.address || 'no-wallet') + ':' + Boolean(user.isGuest) + ':' + Boolean(user.email?.address) + ':' + displayName;
     if (lastAccount.current === key) return;
     lastAccount.current = key;
     const userId = user.id;
     // Sign-in is ready even when the user has never funded or created a wallet.
-    onReady({userId, isGuest:Boolean(user.isGuest), needsEmail:!user.email?.address, upgrade:()=>user.isGuest?login({loginMethods:['email']}):linkEmail(), address: wallet?.address || null, getAccessToken: () => sdk.current.getAccessToken(), ensureWallet, sign: async base64 => {
+    onReady({userId, displayName, isGuest:Boolean(user.isGuest), needsEmail:!user.email?.address, upgrade:()=>user.isGuest?login({loginMethods:['email']}):linkEmail(), address: wallet?.address || null, getAccessToken: () => sdk.current.getAccessToken(), ensureWallet, sign: async base64 => {
       if (sdk.current.userId !== userId || !sdk.current.wallet) throw new Error('Your coin account is reconnecting. Please try again.');
       const transaction = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
       const {signedTransaction} = await sdk.current.signTransaction({transaction, wallet: sdk.current.wallet, chain: 'solana:mainnet', options: {uiOptions: {showWalletUIs: false}}});
       return btoa(String.fromCharCode(...signedTransaction));
     }});
-  }, [authenticated, walletsReady, user?.id, user?.isGuest, user?.email?.address, wallet?.address, ensureWallet, onReady, login, linkEmail]);
+  }, [authenticated, walletsReady, user?.id, user?.isGuest, user?.email?.address, wallet?.address, displayName, ensureWallet, onReady, login, linkEmail]);
   useEffect(() => {
     // Do not interrupt a person reading an email or approving a sign-in.
     if (!activation || authenticated || (ready && loginMethod !== 'guest')) return;
@@ -71,7 +72,7 @@ function Bridge({onReady, onError, onCancel, activation, loginMethod, guestCheck
 }
 export default function Wallet({appId, onReady, onError, onCancel, activation, loginMethod, guestCheckoutEnabled}) {
   return <PrivyProvider appId={appId} config={{
-    appearance: {theme: 'light', accentColor: '#1683f8', logo: '/assets/cashflow-emblem-192.png', walletChainType: 'solana-only'},
+    appearance: {theme: 'light', accentColor: '#102a42', logo: '/assets/cashflow-logo-transparent.png', walletChainType: 'solana-only'},
     loginMethods: ['email'],
     embeddedWallets: {ethereum: {createOnLogin: 'off'}, solana: {createOnLogin: 'off'}},
     solana: {rpcs: {'solana:mainnet': {rpc: createSolanaRpc(`${location.origin}/api/rpc`), rpcSubscriptions: createSolanaRpcSubscriptions('wss://api.mainnet-beta.solana.com')}}}

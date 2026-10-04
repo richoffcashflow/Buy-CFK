@@ -7,6 +7,7 @@ import InstallApp from './InstallApp.jsx';
 import PriceChart from './PriceChart.jsx';
 import TradeDock from './TradeDock.jsx';
 import StripeCheckout from './StripeCheckout.jsx';
+import CashCardPreview, {AccountIcon, AccountNavigation} from './AccountChrome.jsx';
 import {walletForAction} from './wallet-lifecycle.js';
 import {readPending as loadPending,pendingTrade,savedAmount} from './pending-state.js';
 import {PURCHASE_INTENT_KEY,readPurchaseIntent,validAmount} from './purchase-intent.js';
@@ -46,6 +47,7 @@ export default function App(){
   const [inspected,setInspected]=useState(null),[chartLoading,setChartLoading]=useState(true),[historyStart,setHistoryStart]=useState(null),[loginMethod,setLoginMethod]=useState('email');
   const [range,setRange]=useState('1d'),[amount,setAmount]=useState(()=>{const action=readPurchaseIntent(remember);return action?String(action.amountUsd):savedAmount(durable);}),[position,setPosition]=useState(null),[notice,setNotice]=useState(''),[configError,setConfigError]=useState(false),[marketError,setMarketError]=useState(false),[isGuest,setIsGuest]=useState(false),[needsEmail,setNeedsEmail]=useState(false);
   const [modal,setModal]=useState(null),[flow,setFlow]=useState({step:'idle'}),[intent,setIntent]=useState(()=>{const p=readPending();return p?.direction==='offramp'?'withdraw':p?.side==='sell'?'sell':'buy';});
+  const [tab,setTab]=useState('cfk'),[displayName,setDisplayName]=useState(''),[nameDraft,setNameDraft]=useState(''),[profileBusy,setProfileBusy]=useState(false),[profileError,setProfileError]=useState(''),[hasCompletedSale,setHasCompletedSale]=useState(false);
   const [consent,setConsentState]=useState(getConsent()),[chartMessage,setChartMessage]=useState('Loading price history…');
   // Restore an existing session quietly. A saved amount or payment never opens
   // checkout or creates a guest automatically after a refresh.
@@ -59,7 +61,7 @@ export default function App(){
     else {remember.remove('cfk_pending');durable.remove('cfk_pending');remember.remove('cfk_payment_attempt');durable.remove('cfk_payment_attempt');}
   };
   const setLock=value=>{lock.current=value;setBusy(value);};
-  const refreshHistory=useCallback(async()=>{const b=bridgeRef.current;if(!b)return;try{const result=await api('/account/history',{token:await b.getAccessToken()});if(bridgeRef.current?.userId===b.userId){setHistory(result.items||[]);setHistoryError(false);}}catch{setHistoryError(true);}},[]);
+  const refreshHistory=useCallback(async()=>{const b=bridgeRef.current;if(!b)return;try{const result=await api('/account/history',{token:await b.getAccessToken()});if(bridgeRef.current?.userId===b.userId){setHistory(result.items||[]);setHasCompletedSale(result.hasCompletedSale===true||(result.items||[]).some(item=>item.kind==='trade'&&item.action==='sell'&&item.status==='confirmed'));setHistoryError(false);}}catch{setHistoryError(true);}},[]);
   const refreshPosition=useCallback(async()=>{const b=bridgeRef.current;if(!b)return null;if(!b.address){setPosition({valueUsd:0,tokens:0,availableUsd:0});return null;}try{const next=await api('/position?wallet='+b.address);if(bridgeRef.current?.userId!==b.userId)return null;setPosition(next);if(next.tokens>0)setFlow(current=>current.step==='complete'&&current.side==='buy'&&!current.positionUpdated?{...current,positionUpdated:true}:current);return next;}catch{return null;}},[]);
   useEffect(()=>{if(validAmount(amount))durable.set('cfk_amount',amount);},[amount]);
   const refreshConfig=useCallback(async()=>{setConfigError(false);try{const c=await api('/config');setConfig(c);getSession().then(()=>track('ViewContent',{trigger:'coin_page'},c)).catch(()=>{});}catch{setConfigError(true);}},[]);
@@ -78,14 +80,14 @@ export default function App(){
   useEffect(()=>{refreshHistory();},[account,refreshHistory]);
   useEffect(()=>{refreshPosition();const t=setInterval(()=>{if(!document.hidden)refreshPosition();},20000);return()=>clearInterval(t);},[account,refreshPosition]);
   useEffect(()=>{if(!notice)return;const t=setTimeout(()=>setNotice(''),6000);return()=>clearTimeout(t);},[notice]);
-  const onReady=useCallback(bridge=>{durable.set('cfk_account_seen','1');const previous=bridgeRef.current;if(previous?.userId!==bridge.userId){setHistory(null);setPosition(null);}bridgeRef.current=bridge;setIsGuest(Boolean(bridge.isGuest));setNeedsEmail(Boolean(bridge.needsEmail));if(pendingRef.current?.userId&&pendingRef.current.userId!==bridge.userId){savePending(null);setFlow({step:'idle'});setModal(null);}setAccount(bridge.userId);if(previous&&previous.address!==bridge.address)refreshPosition();},[refreshPosition]);
+  const onReady=useCallback(bridge=>{durable.set('cfk_account_seen','1');const previous=bridgeRef.current;if(previous?.userId!==bridge.userId){setHistory(null);setPosition(null);setHasCompletedSale(false);setTab('cfk');setDisplayName(bridge.displayName||'');setProfileError('');setModal(null);}if(previous?.displayName!==bridge.displayName)setDisplayName(bridge.displayName||'');bridgeRef.current=bridge;setIsGuest(Boolean(bridge.isGuest));setNeedsEmail(Boolean(bridge.needsEmail));if(pendingRef.current?.userId&&pendingRef.current.userId!==bridge.userId){savePending(null);setFlow({step:'idle'});setModal(null);}setAccount(bridge.userId);if(previous&&previous.address!==bridge.address)refreshPosition();},[refreshPosition]);
   const onError=useCallback(message=>{setFlow({step:'auth-error',message});setModal('transaction');},[]);
   const onCancelSignIn=useCallback(()=>{queuedAction.current=null;recoverRequested.current=false;remember.remove(PURCHASE_INTENT_KEY);setFlow({step:'idle'});setModal(null);setWalletActive(Boolean(bridgeRef.current));},[]);
   function signIn(method='email'){setLoginMethod(method);setModal(method==='guest'?'transaction':null);setFlow({step:method==='guest'?'guest-connect':'sign-in'});setWalletActive(true);setActivation(n=>n+1);}
   function begin(side,override){
     if(lock.current||queuedAction.current)return;
     if(!online){setNotice('You’re offline. Reconnect before buying, selling, or checking a payment.');return;}
-    setIntent(side);
+    setTab('cfk');setIntent(side);
     setModal('transaction');
     if(pendingRef.current){recover();return;}
     const selected=override??Number(amount);
@@ -143,7 +145,7 @@ export default function App(){
     let result;
     for(let i=0;i<12;i++){result=await api('/trade/confirm',{method:'POST',token,body:{orderId:pending.orderId}});if(result.confirmed)break;await new Promise(resolve=>setTimeout(resolve,1500));}
     if(!result?.confirmed){setFlow({step:'pending',message:'Your transaction is still confirming. We will keep checking it.'});return;}
-    savePending(null);refreshHistory();if(result.event)track('Purchase',result.event,config,{verified:true}).catch(()=>{});
+    savePending(null);if(result.side==='sell')setHasCompletedSale(true);refreshHistory();if(result.event)track('Purchase',result.event,config,{verified:true}).catch(()=>{});
     const updated=await refreshPosition();setFlow({step:'complete',side:result.side,signature:result.signature,positionUpdated:result.side==='buy'&&updated?.tokens>0});
   }
   async function buyFunded(pending){
@@ -198,18 +200,29 @@ export default function App(){
   async function copyMint(){try{await navigator.clipboard.writeText(config?.mint||MINT);setNotice('Token address copied.');}catch{setNotice('Select the address to copy it.');}}
   const close=()=>{if(lock.current)return;queuedAction.current=null;recoverRequested.current=false;remember.remove(PURCHASE_INTENT_KEY);setModal(null);};
   const saveAccount=()=>{setLoginMethod('upgrade');setModal(null);bridgeRef.current?.upgrade?.();};
+  function changeTab(next){setTab(next);document.documentElement.scrollTop=0;document.body.scrollTop=0;}
+  function editName(){setNameDraft(displayName);setProfileError('');setModal('profile');}
+  async function saveName(event){
+    event.preventDefault();if(profileBusy||!online||!bridgeRef.current)return;
+    const b=bridgeRef.current;setProfileBusy(true);setProfileError('');
+    try{const result=await api('/account/profile',{method:'POST',token:await b.getAccessToken(),body:{displayName:nameDraft}});if(bridgeRef.current?.userId!==b.userId)return;setDisplayName(result.displayName);setModal(null);}
+    catch(error){if(bridgeRef.current?.userId===b.userId)setProfileError(error.message);}
+    finally{setProfileBusy(false);}
+  }
   const change=market?.change24h,changeText=change!=null?(change>=0?'+':'')+change.toFixed(2)+'%':'—';
-  return <>
+  return <div className={'app-frame '+(tab==='card'?'card-view':'coin-view')}>
     <main className="app">
       {!online&&<p className="connection-notice" role="status">You’re offline. Displayed prices may be out of date. Reconnect to use your account.</p>}
       {configError&&<div className="connection-notice" role="status">Checkout could not connect. <button onClick={refreshConfig}>Retry connection</button></div>}
       <header className="coin-identity">
-        <div className="coin-identity-main"><img src="/assets/cashflow-emblem-192.png" width="48" height="48" alt="Cashflow"/><div><h1>CASHFLOWKEY</h1><span className="coin-symbol">$CFK<span className="official-badge" role="img" aria-label="Official CFK token" title="Official Cashflowkey token"><Icon name="check"/></span></span></div></div>
-        <p className="brand-tagline">Buy, sell &amp; track your CFK.</p>
-        <button type="button" className="token-address-link" onClick={()=>setModal('token')}>Token details</button>
+        <div className="coin-identity-main"><img src="/assets/cashflow-logo-transparent.png" width="42" height="42" alt="Cashflow"/><div><h1>CASHFLOW</h1><span className="brand-account-label">{account?'YOUR CFK ACCOUNT':'BUY CFK'}</span></div></div>
+        {account&&<button className="account-avatar" aria-label={displayName?'Edit your name':'Add your name'} onClick={editName} disabled={busy}>{displayName?[...displayName][0].toUpperCase():<AccountIcon name="user"/>}</button>}
       </header>
+      <div className="account-welcome"><div><p>{account?(displayName?'Hello, '+displayName+'.':'Welcome back.'):'Make your next move.'}</p><span>{tab==='card'?'Your everyday card, in one place.':'Buy, sell & track your CFK.'}</span></div>{account&&!displayName&&<button onClick={editName} disabled={busy}>Add your name</button>}</div>
+      {tab==='card'&&<CashCardPreview saleCompleted={hasCompletedSale} name={displayName} canSell={position?.tokens>0} busy={busy||!online} onSell={()=>begin('sell',Math.min(Number(amount),Math.floor((position?.valueUsd||0)*100)/100))} onBack={()=>changeTab('cfk')} history={history} historyError={historyError} onRefresh={refreshHistory}/>}
+      <div className="coin-content" hidden={tab!=='cfk'}>
       <section className="coin-card" aria-label="Cashflowkey market">
-        <div className="price-heading"><h2>$CFK Price</h2><span className="price-currency">USD</span></div>
+        <div className="price-heading"><div className="market-token-label"><h2>$CFK</h2><span className="official-badge" role="img" aria-label="Official CFK token" title="Official Cashflowkey token"><Icon name="check"/></span></div><button className="token-address-link" onClick={()=>setModal('token')}>Token details <Icon/></button></div>
         <div className="price-row"><strong>{formatMoney(inspected?.[4]??market?.priceUsd,true)}</strong><div className="price-detail">{inspected?<span className="inspected-time">{new Date(inspected[0]*1000).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}<small>Historical price</small></span>:<span className={change==null?'change muted':change<0?'change loss':'change gain'}>{changeText}<small>past 24 hours</small></span>}</div></div>
         {marketError&&<p className="market-warning" role="status">Price updates are reconnecting. The displayed price may be out of date.</p>}
         <PriceChart key={range} points={points} message={chartMessage} loading={chartLoading} historyStart={historyStart} onInspect={setInspected}/>
@@ -229,9 +242,12 @@ export default function App(){
         <div className="creator-photo"><img src="/assets/cashflowkey-creator.jpg" width="1152" height="2048" loading="lazy" decoding="async" alt="Cashflowkey seated in a vehicle with an orange interior"/><span className="creator-photo-label">THE NAME BEHIND $CFK</span></div>
         <div className="creator-body"><span className="brand-eyebrow">MEET THE CREATOR</span><h2 id="creator-heading">Cashflowkey</h2><p>Entrepreneur. Creator. Follow the person behind $CFK.</p><nav className="creator-socials" aria-label="Creator social profiles">{CREATOR_SOCIALS.map(social=><a key={social.name} href={social.url} target="_blank" rel="noopener noreferrer" aria-label={'Cashflowkey on '+social.name+' (opens in a new tab)'} title={social.name}><img src={'/assets/social-'+social.icon+'.svg'} width="19" height="19" alt=""/><span>{social.name}</span></a>)}</nav></div>
       </section>
+      </div>
       <footer><InstallApp/><p>Crypto can lose all its value. No returns are guaranteed.<br/>Free Crypto App LLC and related parties may hold or sell CFK.</p><nav aria-label="Legal"><button onClick={()=>setModal('disclosures')}>Disclosures</button><a href="/terms">Terms</a><a href="/privacy">Privacy</a><button onClick={()=>setModal('measurement')}>Privacy choices</button></nav><p>Operated by Free Crypto App LLC</p><a href="mailto:support@freecryptoapp.com">support@freecryptoapp.com</a></footer>
     </main>
-    <TradeDock amount={amount} setAmount={setAmount} onBuy={()=>begin('buy')} onSell={()=>begin('sell',Math.min(Number(amount),Math.floor((position?.valueUsd||0)*100)/100))} busy={busy||!online} canSell={position?.tokens>0} openingSignIn={['sign-in','guest-connect'].includes(flow.step)} loading={!config&&!configError} unavailable={config?.checkout?.buyEnabled!==true} pending={pendingRef.current} onResume={recover} onWarm={warmWallet}/>
+    {tab==='cfk'&&<TradeDock amount={amount} setAmount={setAmount} onBuy={()=>begin('buy')} onSell={()=>begin('sell',Math.min(Number(amount),Math.floor((position?.valueUsd||0)*100)/100))} busy={busy||!online} canSell={position?.tokens>0} openingSignIn={['sign-in','guest-connect'].includes(flow.step)} loading={!config&&!configError} unavailable={config?.checkout?.buyEnabled!==true} pending={pendingRef.current} onResume={recover} onWarm={warmWallet}/>}
+    <AccountNavigation tab={tab} onChange={changeTab} saleCompleted={hasCompletedSale} disabled={busy||profileBusy}/>
+    {modal==='profile'&&<Modal title="Make it yours" onClose={()=>{if(!profileBusy)setModal(null);}}><form className="profile-form" onSubmit={saveName}><p>What should we call you? This name is just for your Cashflow greeting.</p><label htmlFor="display-name">Your name</label><input id="display-name" autoComplete="given-name" maxLength={40} value={nameDraft} onChange={event=>setNameDraft(event.target.value)} disabled={profileBusy} required/>{profileError&&<p role="alert">{profileError}</p>}<button className="primary" disabled={profileBusy||!online||!nameDraft.trim()}>{profileBusy?'Saving…':'Save name'}</button><button type="button" className="secondary" disabled={profileBusy} onClick={()=>setModal(null)}>Maybe later</button></form></Modal>}
     {modal==='token'&&<Modal title="$CFK token details" onClose={()=>setModal(null)}><div className="token-details"><p>Official Cashflowkey token on Solana.</p><span>Token address</span><code>{config?.mint||MINT}</code><button className="primary" onClick={copyMint}>Copy address</button></div></Modal>}
     {walletActive&&config?.privyAppId&&<Suspense fallback={null}><Wallet appId={config.privyAppId} activation={activation} loginMethod={loginMethod} guestCheckoutEnabled={config.guestCheckoutEnabled} onReady={onReady} onError={onError} onCancel={onCancelSignIn}/></Suspense>}
     {notice&&<div className="toast" role="status">{notice}</div>}
@@ -251,5 +267,5 @@ export default function App(){
     {['disclosures','terms','privacy'].includes(modal)&&<Modal title={{disclosures:'Risk & fee disclosures',terms:'Terms of use',privacy:'Privacy policy'}[modal]} onClose={()=>setModal(null)}><Legal kind={modal}/></Modal>}
     {modal==='measurement'&&<Modal title="Privacy choices" onClose={()=>setModal(null)}><p className="dialog-copy">Allow optional advertising measurement? Buying and selling work with either choice.</p><button className="primary" onClick={()=>chooseConsent('granted')}>Allow measurement</button><button className="secondary" onClick={()=>chooseConsent('denied')}>Essential only</button></Modal>}
     {consent==='unknown'&&<div className="consent" role="region" aria-label="Privacy choices"><span>Allow ad measurement?</span><button onClick={()=>chooseConsent('denied')}>No thanks</button><button className="consent-accept" onClick={()=>chooseConsent('granted')}>Allow</button></div>}
-  </>;
+  </div>;
 }

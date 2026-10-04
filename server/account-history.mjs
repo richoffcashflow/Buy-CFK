@@ -3,6 +3,7 @@ import {database} from './db.mjs';
 // Authentication happens in the API before this query. Never return provider
 // client secrets, signed transactions, or another account's recovery references.
 export async function accountHistory(user) {
+  const sale=await database().query("SELECT EXISTS (SELECT 1 FROM cfk_orders WHERE user_id=$1 AND side='sell' AND status='confirmed') AS completed",[user.id]);
   const {rows}=await database().query(`
     SELECT * FROM (
       SELECT 'payment' AS kind, r.id, r.direction AS action, r.status,
@@ -20,7 +21,7 @@ export async function accountHistory(user) {
       FROM cfk_orders o WHERE o.user_id=$1
     ) activity ORDER BY created_at DESC, id DESC LIMIT 20
   `,[user.id]);
-  return {items:rows.map(row=>({
+  return {hasCompletedSale: sale.rows[0]?.completed === true, items:rows.map(row=>({
     kind:row.kind,id:row.id,action:row.action,status:row.status,
     amountCents:Number(row.amount_cents),createdAt:new Date(row.created_at).toISOString(),
     signature:row.signature,recoverable:row.recoverable,
