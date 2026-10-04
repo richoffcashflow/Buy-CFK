@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {api} from '../src/utils.js';
 import {validAmount,readPurchaseIntent,PURCHASE_INTENT_KEY} from '../src/purchase-intent.js';
 import {allowedRequestOrigin} from '../server/request-origin.mjs';
-import {guestCheckoutReady} from '../server/guest-checkout.mjs';
+import {guestCheckoutEnabled} from '../server/guest-checkout.mjs';
 
 test('custom amounts reject non-finite values, sub-cent precision and oversized purchases',()=>{
   for(const value of ['0.01','20','37.25','1000000'])assert.equal(validAmount(value),true);
@@ -24,12 +24,14 @@ test('verified website aliases work without accepting attacker origins or arbitr
   assert.equal(allowedRequestOrigin('https://buycfk.com','https://sandbox.invalid'),false);
   assert.equal(allowedRequestOrigin('https://sandbox.invalid','https://sandbox.invalid'),true);
 });
-test('guest checkout is offered only when both guest and email recovery are enabled',async()=>{
-  assert.equal(await guestCheckoutReady(null),false);
-  for(const [index,config] of [{guest_auth:false,email_auth:true},{guest_auth:true,email_auth:false},{guest_auth:true,email_auth:true}].entries()){
-    assert.equal(await guestCheckoutReady('test-app-'+index,async()=>new Response(JSON.stringify(config))),index===2);
-  }
-  assert.equal(await guestCheckoutReady('unavailable',async()=>{throw new Error('offline');}),false);
+test('guest checkout requires an explicit rollout flag and does not depend on scraping provider configuration',()=>{
+  const original=globalThis.fetch;
+  globalThis.fetch=()=>{throw new Error('The browser configuration endpoint is not a server health check.');};
+  try{
+    assert.equal(guestCheckoutEnabled(null,'true'),false);
+    for(const flag of ['', 'false', 'TRUE', '1'])assert.equal(guestCheckoutEnabled('test-app',flag),false);
+    assert.equal(guestCheckoutEnabled('test-app','true'),true);
+  }finally{globalThis.fetch=original;}
 });
 test('a stalled checkout times out without retrying or claiming the payment failed',async()=>{
   const original=globalThis.fetch;let calls=0;

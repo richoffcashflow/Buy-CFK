@@ -85,7 +85,7 @@ The default is Buy $20. Choose $20, $50, $100, or type a custom amount directly,
 
 Verified funding triggers the CFK purchase automatically while the checkout is open. One payment has one order. Visiting or refreshing the page never opens checkout or starts a payment automatically; saved payments offer Continue payment or trade. Sell opens a review before signing and limits the initial selection to the position's value. Sale proceeds remain in SOL; cash payouts require a separately approved and enabled provider.
 
-**Release gate observed October 3, 2026:** the current Privy app has email login enabled but Guest accounts disabled. Enable Guest accounts in Privy's dashboard before releasing this flow, then verify guest creation, payment, and email upgrade on the actual website origin. `/api/config` checks the public Privy configuration and fails closed if either guest or email authentication is unavailable. See [the checkout audit](docs/checkout-audit-2026-10-03.md).
+**Guest checkout configuration:** enable Guest accounts and email login in the same Privy app, then set server-side `GUEST_CHECKOUT_ENABLED=true` for the deployment. It defaults to disabled. The owner confirmed enabling Guest accounts on October 3, 2026 (America/Chicago). `/api/config` reports this explicit rollout setting; it does not claim to inspect the provider dashboard. Privy still enforces guest creation and email linking through its SDK, and provider rejection stops before funding or wallet creation. Verify the checkout on the approved website origin. See [the checkout audit](docs/checkout-audit-2026-10-03.md).
 
 ### Wallet creation and cost controls
 

@@ -255,6 +255,21 @@ test('disabled guest checkout creates no identity, wallet or payment session',as
   }finally{await f.close();}
 });
 
+test('a provider-rejected guest login cannot reach funding or create a payment',async()=>{
+  const f=await fixture({buyEnabled:true,guestCheckoutEnabled:true});
+  try{
+    await f.click('Buy $20 of CFK');
+    await act(async()=>globalThis.cfkWalletProps.onError('Guest checkout could not connect. No payment has been taken. Please try again.'));
+    assert.match(f.text(),/No payment has been taken/);
+    assert.equal(f.signs(),0);
+    assert.ok(!f.requests.some(r=>/ramp|trade/.test(r.url)));
+    assert.equal(localStorage.getItem('cfk_pending'),null);
+    await act(async()=>document.querySelector('[aria-label="Close"]').click());
+    assert.equal(sessionStorage.getItem('cfk_purchase_intent'),null);
+    assert.equal(document.querySelector('[aria-modal="true"]'),null);
+  }finally{await f.close();}
+});
+
 test('refreshing a checkout intent keeps its amount but waits for another Buy tap',async()=>{
   const f=await fixture({buyEnabled:true,guestCheckoutEnabled:true,purchaseIntent:{side:'buy',amountUsd:37.25,savedAt:Date.now()},responses:{
     '/api/ramp/preflight':()=>({ready:true}),

@@ -1,15 +1,7 @@
-let cached;
-export async function guestCheckoutReady(appId, fetcher=fetch) {
-  if (!appId) return false;
-  if (cached?.appId===appId && cached.expires>Date.now()) return cached.ready;
-  try {
-    const response=await fetcher('https://auth.privy.io/api/v1/apps/'+encodeURIComponent(appId),{
-      headers:{'privy-app-id':appId},signal:AbortSignal.timeout(4000)
-    });
-    if (!response.ok) return false;
-    const config=await response.json();
-    const ready=config.guest_auth===true && config.email_auth===true;
-    cached={appId,ready,expires:Date.now()+60000};
-    return ready;
-  } catch { return false; }
+// Enable this rollout only after Guest accounts and email login are configured
+// in Privy. The SDK still enforces Privy's actual authentication settings.
+// Do not scrape the browser configuration endpoint from the server: an upstream
+// access restriction must not be reported as an owner-disabled dashboard setting.
+export function guestCheckoutEnabled(appId, enabled=process.env.GUEST_CHECKOUT_ENABLED) {
+  return Boolean(appId) && enabled === 'true';
 }
