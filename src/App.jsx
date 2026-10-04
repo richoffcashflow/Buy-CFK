@@ -204,7 +204,7 @@ export default function App(){
       {!online&&<p className="connection-notice" role="status">You’re offline. Displayed prices may be out of date. Reconnect to use your account.</p>}
       {configError&&<div className="connection-notice" role="status">Checkout could not connect. <button onClick={refreshConfig}>Retry connection</button></div>}
       <header className="coin-identity">
-        <div className="coin-identity-main"><img src="/assets/cfk-coin.png" width="48" height="48" alt="Cashflow"/><div><h1>CASHFLOWKEY</h1><span className="coin-symbol">$CFK<span className="official-badge" role="img" aria-label="Official CFK token" title="Official Cashflowkey token"><Icon name="check"/></span></span></div></div>
+        <div className="coin-identity-main"><img src="/assets/cashflow-emblem-192.png" width="48" height="48" alt="Cashflow"/><div><h1>CASHFLOWKEY</h1><span className="coin-symbol">$CFK<span className="official-badge" role="img" aria-label="Official CFK token" title="Official Cashflowkey token"><Icon name="check"/></span></span></div></div>
         <p className="brand-tagline">Buy, sell &amp; track your CFK.</p>
         <button type="button" className="token-address-link" onClick={()=>setModal('token')}>Token details</button>
       </header>
