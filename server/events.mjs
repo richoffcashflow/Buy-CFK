@@ -2,10 +2,11 @@ import {randomBytes} from 'node:crypto';
 import {database,transaction} from './db.mjs';
 import {appError,sha} from './core.mjs';
 import {dispatchEvent,configuredDestinations} from './measurement.mjs';
+import {measurementAllowed} from './measurement-policy.mjs';
 const allowed=['utm_source','utm_medium','utm_campaign','utm_content','utm_term','gclid','gbraid','wbraid','fbclid','ttclid','twclid','oppref','ref','fbp','fbc','ttp','obref','gaClientId'];
 export function cleanAttribution(value){return Object.fromEntries(allowed.filter(k=>typeof value?.[k]==='string'&&value[k].length<=1024).map(k=>[k,value[k]]));}
 export async function session(req,body){
-  const consent=body.consent==='granted'&&req.headers['sec-gpc']!=='1';
+  const consent=measurementAllowed(req,body.consent);
   const candidate=body.sessionId;
   const existing=/^[a-f0-9]{32}$/.test(candidate||'')?(await database().query('SELECT * FROM cfk_sessions WHERE id=$1 AND expires_at>now()',[candidate])).rows[0]:null;
   const id=existing?.id||randomBytes(16).toString('hex');
