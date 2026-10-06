@@ -222,7 +222,7 @@ export default function App(){
       {!online&&<p className="connection-notice" role="status">You’re offline. Displayed prices may be out of date. Reconnect to use your account.</p>}
       {configError&&<div className="connection-notice" role="status">Checkout could not connect. <button onClick={refreshConfig}>Retry connection</button></div>}
       <header className="coin-identity">
-        <div className="coin-identity-main"><img src="/assets/cashflow-user-logo.png" width="42" height="42" alt="Cashflowkey"/><div><h1>Cashflowkey</h1><span className="brand-account-label">$CFK <span className="brand-network">ON SOLANA</span></span></div></div>
+        <div className="coin-identity-main"><img src="/assets/cashflow-user-logo.png" width="60" height="60" alt="Cashflowkey"/><div><div className="brand-name"><h1>Cashflowkey</h1><span className="official-badge" role="img" aria-label="Official CFK token" title="Official Cashflowkey token"><Icon name="check"/></span></div><span className="brand-account-label">$CFK <span className="brand-network">ON SOLANA</span></span></div></div>
         {account&&<button className="account-avatar" aria-label={displayName?'Edit your name':'Add your name'} onClick={editName} disabled={busy}>{displayName?[...displayName][0].toUpperCase():<AccountIcon name="user"/>}</button>}
       </header>
       {account&&<div className="account-welcome"><div><p>{displayName?'Hello, '+displayName+'.':'Welcome back.'}</p><span>{currentTab==='card'?'Your everyday card, in one place.':'Buy, sell & track your CFK.'}</span></div>{account&&!displayName&&<button onClick={editName} disabled={busy}>Add your name</button>}</div>}
@@ -230,8 +230,7 @@ export default function App(){
       {currentTab==='card'&&<CashCardPreview saleCompleted={hasCompletedSale} ownerAccess={isAdmin} name={displayName} onBack={()=>changeTab('cfk')} history={history} historyError={historyError} onRefresh={refreshHistory}/>}
       <div className="coin-content" hidden={currentTab!=='cfk'}>
       <section className="coin-card" aria-label="Cashflowkey market">
-        <div className="market-topline"><span className="market-eyebrow">THE CASHFLOW COIN</span><MarketStatus market={market} online={online} error={marketError}/></div>
-        <div className="price-heading"><div className="market-token-label"><h2>Cashflowkey</h2><span className="official-badge" role="img" aria-label="Official CFK token" title="Official Cashflowkey token"><Icon name="check"/></span></div><button className="token-address-link" onClick={()=>setModal('token')}>Token details <Icon/></button></div>
+        <div className="price-heading"><MarketStatus market={market} online={online} error={marketError}/><button className="token-address-link" onClick={()=>setModal('token')}>Token details <Icon/></button></div>
         <div className="price-row"><strong className={inspected?'':'price-update'} key={inspected?'inspecting':market?.priceUsd}>{formatMoney(inspected?.[4]??market?.priceUsd,true)}</strong><div className="price-detail">{inspected?<span className="inspected-time">{new Date(inspected[0]*1000).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}<small>Historical price</small></span>:<span className={change==null?'change muted':change<0?'change loss':'change gain'}><span className="change-value">{change!=null&&<span aria-hidden="true">{change<0?'↘':'↗'} </span>}{changeText}</span><small>24h</small></span>}</div></div>
         {marketError&&<p className="market-warning" role="status">Price updates are reconnecting. The displayed price may be out of date.</p>}
         <PriceChart key={range} points={points} message={chartMessage} loading={chartLoading} historyStart={historyStart} onInspect={setInspected}/>

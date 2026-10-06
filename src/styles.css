@@ -195,9 +195,9 @@ footer { text-align: center; padding: 25px 10px 18px; font-size: 11px; line-heig
 .app { --page-top-gap: 24px; max-width: 480px; min-height: calc(100dvh - var(--nav-height)); padding: calc(var(--page-top-gap) + env(safe-area-inset-top, 0px)) 24px 0; background: #fff; }
 .coin-identity { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; padding: 0 0 22px; margin: 0 0 28px; border-bottom: 1px solid var(--line); background: #fff; color: #111827; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; box-shadow: none; }
 .coin-identity-main { gap: 10px; min-width: 0; }
-.coin-identity-main > img { width: 48px; height: 48px; background: transparent; border-radius: 0; object-fit: contain; }
-.coin-identity h1 { font-size: 22px; font-weight: 800; letter-spacing: -.8px; margin: 0 0 5px; white-space: nowrap; }
-.coin-identity .brand-account-label { font-size: 11px; letter-spacing: .5px; color: #6b7586; font-weight: 700; }
+.coin-identity-main > img { width: 60px; height: 60px; background: transparent; border-radius: 0; object-fit: contain; }
+.coin-identity h1 { font-size: 27px; font-weight: 800; letter-spacing: -1px; margin: 0; white-space: nowrap; }
+.coin-identity .brand-account-label { font-size: 13px; letter-spacing: .5px; color: #6b7586; font-weight: 700; }
 .account-avatar { display: grid; place-items: center; flex-shrink: 0; width: 37px; height: 37px; padding: 9px; border: 0; border-radius: 50%; background: #eff4f8; color: #52728c; font-size: 13px; font-weight: 650; }
 .account-avatar svg { width: 17px; height: 17px; }
 .account-welcome { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 28px; }
@@ -208,8 +208,7 @@ footer { text-align: center; padding: 25px 10px 18px; font-size: 11px; line-heig
 .coin-card, .position-card, .market-card, .activity { padding: 24px 0; margin: 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; box-shadow: none; }
 .coin-card { padding-top: 0; padding-bottom: 18px; }
 h2 { font-size: 19px; letter-spacing: -.6px; font-weight: 800; }
-.market-token-label { display: flex; align-items: center; gap: 6px; }
-.market-token-label h2 { font-size: 21px; font-weight: 800; letter-spacing: -.7px; }
+.brand-name { display: flex; align-items: center; gap: 7px; margin-bottom: 8px; }.brand-name .official-badge { flex-shrink: 0; color: #fff; }
 .official-badge { width: 18px; height: 18px; background: var(--blue); }
 .official-badge svg { width: 10px; height: 10px; }
 .price-heading .token-address-link { display: flex; align-items: center; gap: 4px; min-height: 44px; padding: 8px 0 8px 8px; font-size: 10px; font-weight: 650; color: #6b7586; text-decoration: none; }
@@ -261,13 +260,11 @@ footer { color: #6b7586; padding-left: 0; padding-right: 0; }footer nav { gap: 1
 @media (max-width: 380px) { .app { padding-left: 19px; padding-right: 19px; --page-top-gap: 20px; }.account-welcome p { font-size: 20px; }.coin-identity { margin-bottom: 24px; }.dock-inner { padding-left: 18px; padding-right: 18px; }.cash-card-art { padding: 19px; }.cash-card-art-top img { width: 41px; height: 41px; }.cash-card-digits { margin-top: 18px; font-size: 15px; }.cash-card-art-bottom { margin-top: 16px; }.cash-card-heading h2 { font-size: 28px; } }
 @media (max-height: 720px) { .app { --page-top-gap: 16px; }.account-welcome { margin-bottom: 20px; }.coin-identity { margin-bottom: 21px; }.dock-inner { padding-top: 11px; padding-bottom: 12px; }.amount-heading { margin-bottom: 8px; }.amount-choices { margin-bottom: 10px; } }
 
-@media (max-width: 380px) { .coin-identity h1 { font-size: 21px; }.coin-identity-main { gap: 8px; }.header-sign-in { padding: 10px 12px; }.cash-card-art-top > span { font-size: 10px; letter-spacing: 1.6px; } }
-@media (max-width: 345px) { .coin-identity h1 { font-size: 19px; }.coin-identity-main > img { width: 36px; height: 36px; }.header-sign-in { padding: 10px; } }
+@media (max-width: 380px) { .coin-identity h1 { font-size: 24px; }.coin-identity-main { gap: 8px; }.coin-identity-main > img { width: 52px; height: 52px; }.header-sign-in { padding: 10px 12px; }.cash-card-art-top > span { font-size: 10px; letter-spacing: 1.6px; } }
+@media (max-width: 345px) { .coin-identity h1 { font-size: 21px; }.coin-identity-main > img { width: 44px; height: 44px; }.header-sign-in { padding: 10px; } }
 
 /* Real market updates and responsive touch feedback. */
 .brand-network { margin-left: 8px; color: #7b8796; font-size: 9px; letter-spacing: 1.3px; }
-.market-topline { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 16px; }
-.market-eyebrow { font-size: 9px; font-weight: 800; letter-spacing: 1.5px; color: #788394; }
 .market-status { display: inline-flex; align-items: center; gap: 6px; padding: 6px 9px; border-radius: 20px; background: #f1f4f8; color: #6b7586; font-size: 10px; font-weight: 750; white-space: nowrap; }
 .market-status > span { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .market-status.is-live { color: #008652; background: #e7f9ef; }
