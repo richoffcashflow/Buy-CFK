@@ -39,7 +39,7 @@
       "destination": "/terms.html"
     },
     {
-      "source": "/((?!api/|assets/).*)",
+      "source": "/((?!api/|assets/|fonts/).*)",
       "destination": "/index.html"
     }
   ]
