@@ -16,7 +16,7 @@ export default function TradeDock({amount, setAmount, onBuy, onSell, busy, canSe
   const custom = ![20, 50, 100].includes(Number(amount));
   return <section ref={dock} className="trade-dock" aria-label="Choose an amount and buy CFK">
     <div className="dock-inner">
-      <div className="amount-heading"><strong>Choose your amount</strong><span>USD</span></div>
+      <div className="amount-heading"><strong>Make your move</strong><span>AMOUNT IN USD</span></div>
       <div className="amount-choices" role="group" aria-label="Amount in US dollars">
         {[20, 50, 100].map(value => <button key={value} disabled={locked||Boolean(pending)} aria-pressed={Number(amount) === value} onClick={() => {setEditing(false);setAmount(String(value));onWarm?.();}}>${value}</button>)}
         <label className={'inline-amount'+(custom?' selected':'')}>
@@ -29,6 +29,7 @@ export default function TradeDock({amount, setAmount, onBuy, onSell, busy, canSe
         {canSell&&!pending&&<button className="primary sell" disabled={locked} onClick={onSell}>Sell</button>}
         <button className="primary buy" disabled={locked||(!pending&&(loading||unavailable||!validAmount(amount)))} onPointerEnter={onWarm} onFocus={onWarm} onClick={pending?onResume:onBuy}>
           {openingSignIn?'Connecting your account…':busy?'Please wait…':pending?'Continue payment or trade':loading?'Connecting…':unavailable?'Buying unavailable':'Buy '+formatMoney(Number(amount)).replace('.00','')+' of CFK'}
+          {!locked&&!pending&&!loading&&!unavailable&&<svg className="buy-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>}
         </button>
       </div>
     </div>

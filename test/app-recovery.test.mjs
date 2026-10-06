@@ -57,7 +57,7 @@ test('returning users can sign in without starting a buy; provider gets an unobs
     assert.deepEqual([...document.querySelectorAll('.creator-socials a')].map(a=>a.href),['https://www.instagram.com/cashflowkeyy/']);
     assert.doesNotMatch(f.text(),/Telegram|TikTok|YouTube/);
     assert.equal(document.querySelector('.coin-identity h1').textContent,'Cashflowkey');
-    assert.equal(document.querySelector('.coin-identity .brand-account-label').textContent,'CFK');
+    assert.equal(document.querySelector('.coin-identity .brand-account-label').textContent,'$CFK ON SOLANA');
     assert.equal(document.querySelector('header button'),null);
     assert.equal(document.querySelector('.footer-sign-in').textContent,'Sign in');
     await f.click('Sign in');

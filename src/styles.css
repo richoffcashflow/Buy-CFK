@@ -1,5 +1,6 @@
+@font-face { font-family: Manrope; src: url("/fonts/manrope-latin-variable.woff2") format("woff2"); font-style: normal; font-weight: 200 800; font-display: swap; }
 :root {
-  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: Manrope, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-synthesis: none; color: #101115; background: #fbfcfd; color-scheme: light;
   --blue: #1683f8; --blue-dark: #086bd6; --blue-light: #edf6ff;
   --line: #e9ebf0; --muted: #868b98; --dock-height: 174px;
@@ -183,8 +184,8 @@ footer { text-align: center; padding: 25px 10px 18px; font-size: 11px; line-heig
   .dock-fee-note { font-size: 12px; }
 }
 
-/* Cashflow account theme: shared by the coin, account and payment surfaces. */
-:root { color: #102a42; background: #f6f8fb; --blue: #028de3; --blue-dark: #12689c; --blue-light: #eaf7ff; --line: #e5ebf0; --muted: #718396; --nav-height: calc(66px + env(safe-area-inset-bottom, 0px)); }
+/* Cashflow trading theme: shared by the coin, account and payment surfaces. */
+:root { color: #111827; background: #edf2f8; --blue: #028de3; --blue-dark: #0076c2; --blue-light: #e9f6ff; --line: #eaf0f5; --muted: #6b7586; --nav-height: calc(66px + env(safe-area-inset-bottom, 0px)); }
 [hidden] { display: none !important; }
 #root { padding-bottom: 0; }
 .app-frame { min-height: 100dvh; padding-bottom: calc(var(--dock-height) + var(--nav-height) + 18px); }
@@ -192,73 +193,89 @@ footer { text-align: center; padding: 25px 10px 18px; font-size: 11px; line-heig
 .single-view .trade-dock { padding-bottom: env(safe-area-inset-bottom, 0px); }
 .app-frame.card-view { padding-bottom: calc(var(--nav-height) + 18px); }
 .app { --page-top-gap: 24px; max-width: 480px; min-height: calc(100dvh - var(--nav-height)); padding: calc(var(--page-top-gap) + env(safe-area-inset-top, 0px)) 24px 0; background: #fff; }
-.coin-identity { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; padding: 0; margin: 0 0 27px; background: #fff; color: #102a42; border: 0; border-radius: 0; box-shadow: none; }
+.coin-identity { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; padding: 0 0 22px; margin: 0 0 28px; border-bottom: 1px solid var(--line); background: #fff; color: #111827; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; box-shadow: none; }
 .coin-identity-main { gap: 10px; min-width: 0; }
-.coin-identity-main > img { width: 42px; height: 42px; background: transparent; border-radius: 0; object-fit: contain; }
-.coin-identity h1 { font-size: 20px; font-weight: 650; letter-spacing: -.6px; margin: 0 0 5px; white-space: nowrap; }
-.coin-identity .brand-account-label { font-size: 9px; letter-spacing: 1.8px; color: #718496; font-weight: 550; }
+.coin-identity-main > img { width: 48px; height: 48px; background: transparent; border-radius: 0; object-fit: contain; }
+.coin-identity h1 { font-size: 22px; font-weight: 800; letter-spacing: -.8px; margin: 0 0 5px; white-space: nowrap; }
+.coin-identity .brand-account-label { font-size: 11px; letter-spacing: .5px; color: #6b7586; font-weight: 700; }
 .account-avatar { display: grid; place-items: center; flex-shrink: 0; width: 37px; height: 37px; padding: 9px; border: 0; border-radius: 50%; background: #eff4f8; color: #52728c; font-size: 13px; font-weight: 650; }
 .account-avatar svg { width: 17px; height: 17px; }
 .account-welcome { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 28px; }
 .account-welcome > div { min-width: 0; }
-.account-welcome p { font-size: 21px; line-height: 1.25; letter-spacing: -.6px; font-weight: 550; margin: 0 0 7px; overflow-wrap: anywhere; }
-.account-welcome span { font-size: 12px; color: #718396; }
+.account-welcome p { font-size: 23px; line-height: 1.25; letter-spacing: -.6px; font-weight: 650; margin: 0 0 7px; overflow-wrap: anywhere; }
+.account-welcome span { font-size: 12px; color: #6b7586; }
 .account-welcome > button { border: 0; background: none; color: #406f93; font-size: 11px; padding: 10px 0; white-space: nowrap; }
 .coin-card, .position-card, .market-card, .activity { padding: 24px 0; margin: 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; box-shadow: none; }
 .coin-card { padding-top: 0; padding-bottom: 18px; }
-h2 { font-size: 17px; letter-spacing: -.3px; font-weight: 650; }
+h2 { font-size: 19px; letter-spacing: -.6px; font-weight: 800; }
 .market-token-label { display: flex; align-items: center; gap: 6px; }
-.market-token-label h2 { font-size: 13px; font-weight: 650; letter-spacing: .3px; }
-.official-badge { width: 14px; height: 14px; background: #5595c4; }
+.market-token-label h2 { font-size: 21px; font-weight: 800; letter-spacing: -.7px; }
+.official-badge { width: 18px; height: 18px; background: var(--blue); }
 .official-badge svg { width: 10px; height: 10px; }
-.price-heading .token-address-link { display: flex; align-items: center; gap: 4px; padding: 8px 0 8px 8px; font-size: 11px; font-weight: 450; color: #718396; text-decoration: none; }
+.price-heading .token-address-link { display: flex; align-items: center; gap: 4px; min-height: 44px; padding: 8px 0 8px 8px; font-size: 10px; font-weight: 650; color: #6b7586; text-decoration: none; }
 .token-address-link svg { width: 12px; height: 12px; }
-.price-row { margin-top: 9px; }
-.price-row > strong { font-size: clamp(30px, 8vw, 38px); font-weight: 550; letter-spacing: -1.3px; }
-.change { font-size: 12px; font-weight: 550; }
-.change small { font-size: 10px; font-weight: 450; }
-.gain { color: #377f66; }.loss { color: #b7606b; }
-.chart { margin-top: 28px; }.chart-stage { padding-right: 76px; }.chart-plot { height: 240px; }.chart-empty { min-height: 240px; }.chart-dates { padding-right: 76px; margin-top: 18px; font-size: 11px; line-height: 1.5; }
-.chart-axis { width: 66px; font-size: 10px; font-weight: 450; }.chart-dot { width: 8px; height: 8px; box-shadow: none; }
-.chart-controls { margin-top: 16px; gap: 12px; flex-wrap: wrap; }.chart-controls > span { font-size: 11px; font-weight: 450; }.chart-controls > div { gap: 8px; margin-left: auto; }.chart-controls button { min-width: 44px; height: 44px; background: #f5f7f9; font-size: 18px; }.chart-controls .zoom-reset { font-size: 11px; padding: 0 10px; }
-.ranges { gap: 8px; margin-top: 18px; margin-bottom: 0; }.ranges button { min-height: 44px; padding: 8px 0; border-radius: 8px; font-size: 11px; font-weight: 550; background: transparent; color: #8291a0; }
-.ranges button[aria-pressed=true] { color: #fff; background: var(--blue); }
-.position-value > div > strong { font-size: 36px; font-weight: 550; }.position-value .position-return > strong { font-size: 14px; font-weight: 550; }
-.position-value > div > span, .position-tokens > div > span { font-size: 11px; font-weight: 450; color: #718396; }.position-tokens strong { font-size: 18px; font-weight: 550; }
-.token-badge { font-size: 10px; font-weight: 550; background: #f0f4f8; color: #59728a; padding: 5px 8px; border-radius: 6px; }
+.price-row { margin-top: 8px; }
+.price-row > strong { font-size: clamp(32px, 8.7vw, 44px); font-weight: 800; letter-spacing: -1.8px; line-height: 1.2; }
+.price-detail { min-height: 40px; height: auto; margin-top: 7px; }.change { font-size: 13px; font-weight: 800; align-items: center; gap: 9px; }.change-value { padding: 6px 9px; border-radius: 8px; background: #e5f8ee; }.loss .change-value { background: #fff0f3; }.muted .change-value { background: #f3f5f8; }
+.change small { font-size: 12px; font-weight: 600; color: var(--muted); }
+.gain { color: #008b59; }.loss { color: #d44266; }
+.chart { margin-top: 24px; }.chart-stage { padding-right: 76px; }.chart-plot { height: 240px; }.chart-empty { min-height: 240px; }.chart-dates { padding-right: 76px; margin-top: 18px; font-size: 11px; line-height: 1.5; }
+.chart-axis { width: 66px; font-size: 9px; font-weight: 600; color: #788394; }.chart-dot { width: 9px; height: 9px; box-shadow: 0 0 0 4px #028de316; }.chart-dot-latest { animation: price-arrival 700ms ease-out; }
+.chart-controls { margin-top: 16px; gap: 12px; flex-wrap: wrap; }.chart-controls > span { font-size: 11px; font-weight: 500; }.chart-controls > div { gap: 8px; margin-left: auto; }.chart-controls button { min-width: 44px; height: 44px; border-radius: 50%; background: #f2f6fa; color: #38465a; font-size: 20px; }.chart-controls .zoom-reset { border-radius: 22px; }.chart-controls .zoom-reset { font-size: 11px; padding: 0 10px; }
+.ranges { gap: 4px; margin-top: 14px; margin-bottom: 0; padding: 4px; background: #f4f7fa; border-radius: 28px; }.ranges button { min-height: 44px; padding: 8px 0; border-radius: 24px; font-size: 12px; font-weight: 800; background: transparent; color: #6b7586; }
+.ranges button[aria-pressed=true] { color: var(--blue); background: #fff; box-shadow: 0 2px 8px #17395910; }
+.position-value > div > strong { font-size: 36px; font-weight: 650; }.position-value .position-return > strong { font-size: 14px; font-weight: 650; }
+.position-value > div > span, .position-tokens > div > span { font-size: 11px; font-weight: 500; color: #6b7586; }.position-tokens strong { font-size: 18px; font-weight: 650; }
+.token-badge { font-size: 10px; font-weight: 650; background: #f0f4f8; color: #59728a; padding: 5px 8px; border-radius: 6px; }
 .account-status { border-top-color: var(--line); }.account-status p { color: #6a7d90; font-size: 12px; }
-.available-balance { font-size: 12px; }.available-balance strong { font-size: 20px; font-weight: 550; }
+.available-balance { font-size: 12px; }.available-balance strong { font-size: 20px; font-weight: 650; }
 .account-status .availability-note { background: #f4f6f8; color: #6a7d90; border-radius: 10px; }
-.market-card h2 { font-size: 10px; letter-spacing: 1.4px; font-weight: 550; }.market-stats { gap: 18px 10px; }
-.market-stats > div { padding: 0; background: none; }.market-stats dt { text-transform: none; letter-spacing: 0; font-size: 11px; font-weight: 450; color: #718396; }.market-stats dd { font-size: 20px; font-weight: 550; }
-.activity-badge { font-weight: 450; }.activity-status { padding: 11px 0; background: none; border: 0; margin: 7px 0 0; font-weight: 450; font-size: 11px; }.activity li { padding: 15px 0; }
-.activity li strong { font-size: 12px; font-weight: 550; }.activity-icon { background: #edf5f1; color: #57816e; border-radius: 10px; }.activity-icon.sell { background: #f7f0f1; color: #a6757c; }
-.source-note { font-size: 10px; color: #718396; }.creator-card { border-radius: 16px; box-shadow: none; margin-top: 26px; }.creator-photo { height: 220px; }.creator-body { padding: 20px; }.creator-body h2 { font-size: 23px; font-weight: 600; letter-spacing: -.5px; }.brand-eyebrow { font-size: 9px; font-weight: 600; color: #718396; }.creator-socials a { font-weight: 550; background: #f2f5f8; }
-.primary { background: var(--blue); color: #fff; font-weight: 650; font-size: 14px; border-radius: 12px; min-height: 50px; }.primary:hover { background: #027dcc; }.primary.sell { background: var(--blue); border-color: transparent; color: #fff; }.primary.sell:hover { background: #027dcc; }
-.secondary { font-size: 13px; font-weight: 600; background: var(--blue); color: #fff; border-color: transparent; border-radius: 12px; padding: 14px; }.secondary:hover { background: #027dcc; }.save-account { background: #f4f7fa; border-color: #e4ebf1; border-radius: 14px; }.save-account h3 { font-size: 16px; font-weight: 600; }.save-account p { font-size: 12px; }.account-history { font-size: 12px; }.account-history summary { font-weight: 550; }
-.trade-dock { width: min(100%, 480px); left: 50%; right: auto; transform: translateX(-50%); bottom: var(--nav-height); padding-bottom: 0; border: 1px solid #e8edf2; border-bottom: 0; border-radius: 18px 18px 0 0; box-shadow: 0 -8px 25px #102a4205; background: #fffffff5; }
-.dock-inner { width: 100%; padding: 14px 22px 16px; }.amount-heading { margin-bottom: 11px; }.amount-heading strong { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; font-weight: 600; color: #677e93; }.amount-heading > span { font-size: 10px; font-weight: 450; }
-.amount-choices { margin-bottom: 12px; gap: 8px; }.amount-choices button { font-size: 14px; font-weight: 550; min-height: 42px; background: #fff; border-radius: 9px; border-color: #e3eaf0; color: #52708a; }.amount-choices button[aria-pressed=true] { color: #fff; border: 1px solid var(--blue); background: var(--blue); box-shadow: none; }
-.inline-amount { border-radius: 9px; background: #fff; border-color: #e3eaf0; font-size: 13px; }.inline-amount input { min-height: 40px; font-weight: 550; font-size: 14px; }.inline-amount.selected, .inline-amount:focus-within { border-color: #93d7ff; background: var(--blue-light); }
-.trade-buttons { gap: 10px; grid-template-columns: 1fr 1.7fr; }.trade-buttons .primary { min-height: 49px; font-size: 14px; }.trade-buttons .buy { box-shadow: none; }
+.market-card h2 { color: #111827; font-size: 18px; text-transform: none; letter-spacing: -.5px; font-weight: 800; margin-bottom: 16px; }.market-stats { gap: 10px; }
+.market-stats > div { padding: 16px; background: #f5f8fb; border: 1px solid #edf2f7; border-radius: 18px; }.market-stats dt { text-transform: none; letter-spacing: 0; font-size: 11px; font-weight: 500; color: #6b7586; }.market-stats dd { font-size: 22px; font-weight: 800; }
+.activity-badge { font-weight: 500; }.activity-status { padding: 11px 0; background: none; border: 0; margin: 7px 0 0; font-weight: 500; font-size: 11px; }.activity li { padding: 15px 0; }
+.activity li strong { font-size: 13px; font-weight: 800; }.activity-icon { background: #e4f8ee; color: #008b59; border-radius: 50%; }.activity-icon.sell { background: #fff0f3; color: #d44266; }
+.source-note { font-size: 10px; color: #6b7586; }.creator-card { border-radius: 24px; box-shadow: none; margin-top: 26px; }.creator-photo { height: 220px; }.creator-body { padding: 20px; }.creator-body h2 { font-size: 27px; font-weight: 800; letter-spacing: -.5px; }.brand-eyebrow { font-size: 9px; font-weight: 600; color: #6b7586; }.creator-socials a { font-weight: 650; background: #f2f5f8; }
+.primary { background: var(--blue); color: #fff; font-weight: 800; font-size: 16px; border-radius: 28px; min-height: 54px; }.primary:hover { background: #027dcc; }.primary.sell { background: #f0f5fa; border-color: transparent; color: #1b3550; }.primary.sell:hover { background: #e3edf7; }
+.secondary { font-size: 13px; font-weight: 600; background: var(--blue); color: #fff; border-color: transparent; border-radius: 12px; padding: 14px; }.secondary:hover { background: #027dcc; }.save-account { background: #f4f7fa; border-color: #e4ebf1; border-radius: 14px; }.save-account h3 { font-size: 16px; font-weight: 600; }.save-account p { font-size: 12px; }.account-history { font-size: 12px; }.account-history summary { font-weight: 650; }
+.trade-dock { width: min(100%, 480px); left: 50%; right: auto; transform: translateX(-50%); bottom: var(--nav-height); padding-bottom: 0; border: 1px solid #e8edf2; border-bottom: 0; border-radius: 26px 26px 0 0; box-shadow: 0 -8px 35px #14395f0c; background: #fffffff5; backdrop-filter: blur(18px); }
+.dock-inner { width: 100%; padding: 14px 22px 16px; }.amount-heading { margin-bottom: 11px; }.amount-heading strong { font-size: 14px; text-transform: none; letter-spacing: -.3px; font-weight: 800; color: #192536; }.amount-heading > span { font-size: 9px; letter-spacing: 1px; font-weight: 700; }
+.amount-choices { margin-bottom: 12px; gap: 8px; }.amount-choices button { font-size: 15px; font-weight: 800; min-height: 46px; background: #f3f6fa; border-radius: 14px; border-color: transparent; color: #24364a; }.amount-choices button[aria-pressed=true] { color: #0076c2; border: 1px solid #86cfff; background: #e9f6ff; box-shadow: inset 0 0 0 1px #86cfff; }
+.inline-amount { border-radius: 14px; background: #f3f6fa; border-color: transparent; font-size: 14px; }.inline-amount input { min-height: 44px; font-weight: 800; font-size: 14px; }.inline-amount.selected, .inline-amount:focus-within { border-color: #93d7ff; background: var(--blue-light); }
+.trade-buttons { gap: 10px; grid-template-columns: 1fr 1.7fr; }.trade-buttons .primary { min-height: 54px; font-size: 16px; }.trade-buttons .buy { box-shadow: 0 5px 15px #028de324; }.buy-arrow { width: 19px; height: 19px; margin-left: 6px; }
 .account-navigation { position: fixed; z-index: 11; bottom: 0; left: 50%; transform: translateX(-50%); width: min(100%, 480px); height: var(--nav-height); padding: 7px 28px calc(7px + env(safe-area-inset-bottom, 0px)); background: #fffffff8; backdrop-filter: blur(12px); border-top: 1px solid #edf0f4; display: flex; gap: 16px; }
-.account-navigation > button { flex: 1; border: 0; background: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; font-size: 10px; font-weight: 500; color: #8193a5; padding: 4px; border-radius: 9px; }.account-navigation > button[aria-current=page] { color: #102a42; }.account-navigation svg { width: 21px; height: 21px; }
+.account-navigation > button { flex: 1; border: 0; background: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; font-size: 10px; font-weight: 500; color: #8193a5; padding: 4px; border-radius: 9px; }.account-navigation > button[aria-current=page] { color: #111827; }.account-navigation svg { width: 21px; height: 21px; }
 .nav-card-icon { position: relative; height: 21px; }.nav-lock { position: absolute; right: -8px; bottom: -3px; display: grid; place-items: center; padding: 2px; border-radius: 50%; background: #fff; }.nav-lock svg { width: 9px; height: 9px; stroke-width: 2; }
-.dialog { width: min(100%, 440px); padding: 25px; border-radius: 21px; color: #102a42; }.dialog-head h2 { font-weight: 600; font-size: 19px; }.dialog-backdrop { background: #102a4240; }.flow-state h3 { font-weight: 550; }.review h3 { font-size: 28px; font-weight: 550; }.review dd { font-weight: 550; }.dialog-copy, .review p, .flow-state p { color: #63788e; }
+.dialog { width: min(100%, 440px); padding: 25px; border-radius: 21px; color: #111827; }.dialog-head h2 { font-weight: 600; font-size: 19px; }.dialog-backdrop { background: #11182740; }.flow-state h3 { font-weight: 650; }.review h3 { font-size: 28px; font-weight: 650; }.review dd { font-weight: 650; }.dialog-copy, .review p, .flow-state p { color: #63788e; }
 .toast { bottom: calc(var(--dock-height) + var(--nav-height) + 10px); }.card-view .toast { bottom: calc(var(--nav-height) + 10px); }
-footer { color: #718396; padding-left: 0; padding-right: 0; }footer nav { gap: 12px; }footer p, footer a, footer button { font-size: 10px; }
-.profile-form p { font-size: 13px; line-height: 1.6; color: #63788e; }.profile-form label { font-size: 12px; display: block; margin: 20px 0 9px; }.profile-form input { width: 100%; padding: 14px; border: 1px solid #dce5ed; border-radius: 11px; background: #fff; color: #102a42; margin-bottom: 20px; font-size: 16px; }.profile-form [role=alert] { color: #a35057; }
-.account-eyebrow { font-size: 9px; font-weight: 600; color: #718396; letter-spacing: 1.5px; }.cash-card-heading { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-top: 35px; }.cash-card-heading h2 { margin: 12px 0 0; font-size: 31px; letter-spacing: -1.1px; font-weight: 550; }.card-state { display: inline-flex; gap: 5px; align-items: center; font-size: 10px; color: #647e93; border-radius: 6px; background: #f0f4f7; padding: 6px 8px; white-space: nowrap; }.card-state svg { width: 12px; height: 12px; }
+footer { color: #6b7586; padding-left: 0; padding-right: 0; }footer nav { gap: 12px; }footer p, footer a, footer button { font-size: 10px; }
+.profile-form p { font-size: 13px; line-height: 1.6; color: #63788e; }.profile-form label { font-size: 12px; display: block; margin: 20px 0 9px; }.profile-form input { width: 100%; padding: 14px; border: 1px solid #dce5ed; border-radius: 11px; background: #fff; color: #111827; margin-bottom: 20px; font-size: 16px; }.profile-form [role=alert] { color: #a35057; }
+.account-eyebrow { font-size: 9px; font-weight: 600; color: #6b7586; letter-spacing: 1.5px; }.cash-card-heading { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-top: 35px; }.cash-card-heading h2 { margin: 12px 0 0; font-size: 31px; letter-spacing: -1.1px; font-weight: 650; }.card-state { display: inline-flex; gap: 5px; align-items: center; font-size: 10px; color: #647e93; border-radius: 6px; background: #f0f4f7; padding: 6px 8px; white-space: nowrap; }.card-state svg { width: 12px; height: 12px; }
 .card-back { display: block; width: 100%; min-height: 44px; margin-top: 8px; border: 0; background: transparent; color: #537087; font-size: 12px; }
-.cash-card-intro { color: #718396; font-size: 13px; line-height: 1.6; margin: 12px 0 27px; }.cash-card-art { aspect-ratio: 1.586; width: 100%; background: linear-gradient(145deg, #fff 48%, #f5faff); color: #102a42; padding: 24px; border: 1px solid #e2eaf1; border-radius: 18px; box-shadow: 0 14px 28px -15px #102a4230, 0 2px 5px #102a4204; }
-.cash-card-art-top { display: flex; justify-content: space-between; align-items: flex-start; }.cash-card-art-top > span { font-size: 12px; letter-spacing: 2.3px; padding-top: 7px; font-weight: 550; }.cash-card-art-top img { width: 48px; height: 48px; object-fit: contain; }
+.cash-card-intro { color: #6b7586; font-size: 13px; line-height: 1.6; margin: 12px 0 27px; }.cash-card-art { aspect-ratio: 1.586; width: 100%; background: linear-gradient(145deg, #fff 48%, #f5faff); color: #111827; padding: 24px; border: 1px solid #e2eaf1; border-radius: 18px; box-shadow: 0 14px 28px -15px #11182730, 0 2px 5px #11182704; }
+.cash-card-art-top { display: flex; justify-content: space-between; align-items: flex-start; }.cash-card-art-top > span { font-size: 12px; letter-spacing: 2.3px; padding-top: 7px; font-weight: 650; }.cash-card-art-top img { width: 48px; height: 48px; object-fit: contain; }
 .cash-card-chip { display: flex; height: 25px; width: 33px; border: 1px solid #8ba3b8; border-radius: 5px; margin-top: 8px; overflow: hidden; background: #edf3f7; }.cash-card-chip i { flex: 1; border-right: 1px solid #8ba3b8; }.cash-card-chip i:nth-child(2) { border-top: 1px solid #8ba3b8; border-bottom: 1px solid #8ba3b8; margin: 5px 0; }
 .cash-card-digits { display: flex; justify-content: space-between; max-width: 290px; font-size: 17px; letter-spacing: 3px; margin-top: 23px; }.cash-card-art-bottom { display: flex; justify-content: space-between; gap: 15px; color: #607b92; font-size: 9px; letter-spacing: 1px; margin-top: 20px; }.cash-card-art-bottom > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: uppercase; }.cash-card-art-bottom > span:last-child { flex-shrink: 0; }
-.card-unlock { display: flex; gap: 12px; align-items: flex-start; margin: 28px 0 22px; }.card-unlock-icon { display: grid; place-items: center; border-radius: 11px; padding: 12px; background: #f2f5f8; color: #5b768c; }.card-unlock-icon svg { width: 18px; height: 18px; }.card-unlock h3 { font-size: 14px; font-weight: 600; margin: 2px 0 8px; }.card-unlock p { margin: 0; color: #718396; font-size: 12px; line-height: 1.65; }.card-benefits { margin-top: 30px; border-top: 1px solid var(--line); padding-top: 22px; }.card-benefits h3, .card-coin-history h3 { font-size: 13px; font-weight: 600; margin: 0 0 17px; }.card-benefits > div { display: flex; gap: 13px; align-items: center; margin: 18px 0; }.card-benefits svg { color: #54748e; width: 20px; height: 20px; }.card-benefits p { color: #718396; font-size: 12px; line-height: 1.6; margin: 0; }
-.card-coin-history { border-top: 1px solid var(--line); padding-top: 22px; margin-top: 25px; }.card-coin-history .section-heading span { font-size: 10px; color: #718396; }.card-coin-history ul { list-style: none; padding: 0; margin: 0; }.card-coin-history li { display: flex; justify-content: space-between; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--line); font-size: 12px; }.card-coin-history strong { font-weight: 550; }.card-coin-history li span { display: block; margin-top: 6px; font-size: 10px; color: #718396; }.card-coin-history p { font-size: 12px; color: #718396; }
-@media (min-width: 700px) { .app { margin-top: 20px; border: 1px solid #edf0f3; border-radius: 22px 22px 0 0; padding-left: 28px; padding-right: 28px; }.trade-dock { border-radius: 18px 18px 0 0; width: 480px; }.account-navigation { border-left: 1px solid #edf0f4; border-right: 1px solid #edf0f4; } }
+.card-unlock { display: flex; gap: 12px; align-items: flex-start; margin: 28px 0 22px; }.card-unlock-icon { display: grid; place-items: center; border-radius: 11px; padding: 12px; background: #f2f5f8; color: #5b768c; }.card-unlock-icon svg { width: 18px; height: 18px; }.card-unlock h3 { font-size: 14px; font-weight: 600; margin: 2px 0 8px; }.card-unlock p { margin: 0; color: #6b7586; font-size: 12px; line-height: 1.65; }.card-benefits { margin-top: 30px; border-top: 1px solid var(--line); padding-top: 22px; }.card-benefits h3, .card-coin-history h3 { font-size: 13px; font-weight: 600; margin: 0 0 17px; }.card-benefits > div { display: flex; gap: 13px; align-items: center; margin: 18px 0; }.card-benefits svg { color: #54748e; width: 20px; height: 20px; }.card-benefits p { color: #6b7586; font-size: 12px; line-height: 1.6; margin: 0; }
+.card-coin-history { border-top: 1px solid var(--line); padding-top: 22px; margin-top: 25px; }.card-coin-history .section-heading span { font-size: 10px; color: #6b7586; }.card-coin-history ul { list-style: none; padding: 0; margin: 0; }.card-coin-history li { display: flex; justify-content: space-between; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--line); font-size: 12px; }.card-coin-history strong { font-weight: 650; }.card-coin-history li span { display: block; margin-top: 6px; font-size: 10px; color: #6b7586; }.card-coin-history p { font-size: 12px; color: #6b7586; }
+@media (min-width: 700px) { .app { margin-top: 20px; border: 1px solid #edf0f3; border-radius: 30px 30px 0 0; padding-left: 28px; padding-right: 28px; }.trade-dock { border-radius: 26px 26px 0 0; width: 480px; }.account-navigation { border-left: 1px solid #edf0f4; border-right: 1px solid #edf0f4; } }
 @media (max-width: 380px) { .app { padding-left: 19px; padding-right: 19px; --page-top-gap: 20px; }.account-welcome p { font-size: 20px; }.coin-identity { margin-bottom: 24px; }.dock-inner { padding-left: 18px; padding-right: 18px; }.cash-card-art { padding: 19px; }.cash-card-art-top img { width: 41px; height: 41px; }.cash-card-digits { margin-top: 18px; font-size: 15px; }.cash-card-art-bottom { margin-top: 16px; }.cash-card-heading h2 { font-size: 28px; } }
 @media (max-height: 720px) { .app { --page-top-gap: 16px; }.account-welcome { margin-bottom: 20px; }.coin-identity { margin-bottom: 21px; }.dock-inner { padding-top: 11px; padding-bottom: 12px; }.amount-heading { margin-bottom: 8px; }.amount-choices { margin-bottom: 10px; } }
 
-@media (max-width: 380px) { .coin-identity h1 { font-size: 19px; }.coin-identity-main { gap: 8px; }.header-sign-in { padding: 10px 12px; }.cash-card-art-top > span { font-size: 10px; letter-spacing: 1.6px; } }
-@media (max-width: 345px) { .coin-identity h1 { font-size: 17px; }.coin-identity-main > img { width: 36px; height: 36px; }.header-sign-in { padding: 10px; } }
+@media (max-width: 380px) { .coin-identity h1 { font-size: 21px; }.coin-identity-main { gap: 8px; }.header-sign-in { padding: 10px 12px; }.cash-card-art-top > span { font-size: 10px; letter-spacing: 1.6px; } }
+@media (max-width: 345px) { .coin-identity h1 { font-size: 19px; }.coin-identity-main > img { width: 36px; height: 36px; }.header-sign-in { padding: 10px; } }
+
+/* Real market updates and responsive touch feedback. */
+.brand-network { margin-left: 8px; color: #7b8796; font-size: 9px; letter-spacing: 1.3px; }
+.market-topline { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 16px; }
+.market-eyebrow { font-size: 9px; font-weight: 800; letter-spacing: 1.5px; color: #788394; }
+.market-status { display: inline-flex; align-items: center; gap: 6px; padding: 6px 9px; border-radius: 20px; background: #f1f4f8; color: #6b7586; font-size: 10px; font-weight: 750; white-space: nowrap; }
+.market-status > span { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.market-status.is-live { color: #008652; background: #e7f9ef; }
+.market-status.is-live > span { animation: market-pulse 2.8s ease-out infinite; }
+.price-update { animation: price-arrival 450ms ease-out; }
+button, .creator-socials a { transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease, transform 160ms ease; }
+button:active:not(:disabled), .creator-socials a:active { transform: scale(.97); }
+.chart-tooltip { z-index: 2; }
+@keyframes market-pulse { 0%, 100% { box-shadow: 0 0 0 0 #00a96900; } 40% { box-shadow: 0 0 0 4px #00a96920; } }
+@keyframes price-arrival { from { opacity: .65; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .market-status.is-live > span, .price-update, .chart-dot-latest { animation: none; } button, .creator-socials a { transition: none; } }
